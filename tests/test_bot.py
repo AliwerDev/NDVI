@@ -11,6 +11,7 @@ from app.bot.subscriptions import (
     link_chat,
     list_chat_fields,
     parse_field_id,
+    parse_start_payload,
     subscribed_chat_ids,
     unlink_chat,
 )
@@ -29,6 +30,14 @@ CHAT = 123456789
 )
 def test_parse_field_id(args: str | None, expected: int | None) -> None:
     assert parse_field_id(args) == expected
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [("link_3", 3), ("link_12", 12), (None, None), ("", None), ("link_", None), ("link_abc", None), ("3", None)],
+)
+def test_parse_start_payload(args: str | None, expected: int | None) -> None:
+    assert parse_start_payload(args) == expected
 
 
 def test_link_and_unlink(db_session: Session, field: Field) -> None:

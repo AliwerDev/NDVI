@@ -9,7 +9,13 @@ from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import Message
 
 from app.bot import messages
-from app.bot.subscriptions import link_chat, list_chat_fields, parse_field_id, unlink_chat
+from app.bot.subscriptions import (
+    link_chat,
+    list_chat_fields,
+    parse_field_id,
+    parse_start_payload,
+    unlink_chat,
+)
 from app.config import get_settings
 from app.db import SessionLocal
 
@@ -28,8 +34,13 @@ async def _run_db(func: Callable[..., str], *args: object) -> str:
 
 
 @router.message(CommandStart())
-async def handle_start(message: Message) -> None:
-    await message.answer(messages.WELCOME)
+async def handle_start(message: Message, command: CommandObject) -> None:
+    # The "Telegramda ulash" button in the frontend opens the bot with the payload "link_<id>".
+    field_id = parse_start_payload(command.args)
+    if field_id is None:
+        await message.answer(messages.WELCOME)
+        return
+    await message.answer(await _run_db(link_chat, message.chat.id, field_id))
 
 
 @router.message(Command("link"))

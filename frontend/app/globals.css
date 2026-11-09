@@ -570,6 +570,17 @@ p {
   margin-top: 1px;
 }
 
+.btn-telegram {
+  background: #2aabee;
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.btn-telegram:hover {
+  background: #1e96d4;
+}
+
 .code-chip {
   align-self: flex-start;
   height: 40px;

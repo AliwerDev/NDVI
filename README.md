@@ -118,9 +118,12 @@ If the API does not run on `http://localhost:8000`, copy `frontend/.env.example`
 3. In Telegram, send `/start` to the bot.
 4. Send `/link 3` to receive alerts for field 3. The frontend shows the field number.
 
+To link a field with one button, set `NEXT_PUBLIC_TELEGRAM_BOT` in `frontend/.env.local` to the bot username without `@`. The "Telegramda ulash" button then opens `https://t.me/<bot>?start=link_<id>`. When the user taps "Start", the bot links the field.
+
 | Command | Result |
 |---|---|
 | `/start` | Shows the help text. |
+| `/start link_<id>` | Links the chat to the field. The deep link from the frontend sends it. |
 | `/link <id>` | Links the chat to the field. |
 | `/unlink <id>` | Removes the link. |
 | `/fields` | Lists the linked fields with the latest NDVI. |

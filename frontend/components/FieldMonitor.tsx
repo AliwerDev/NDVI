@@ -36,6 +36,10 @@ const RAMP = `linear-gradient(to right, ${NDVI_STOPS.map(
   ([value, color]) => `${color} ${(((value + 0.2) / 1.1) * 100).toFixed(2)}%`,
 ).join(", ")})`;
 
+// The bot username without "@". When it is set, one button links the field through a deep link
+// (t.me/<bot>?start=link_<id>). Without it, the user types "/link <id>" to the bot.
+const TELEGRAM_BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT?.replace(/^@/, "").trim() || null;
+
 // After a backfill starts, reload the history every 10 s for 3 minutes.
 const POLL_INTERVAL_MS = 10_000;
 const POLL_COUNT = 18;
@@ -345,24 +349,42 @@ export default function FieldMonitor() {
                   {selectedField.properties.name}
                 </h2>
               </div>
-              <div className="telegram">
-                <p>
-                  <SendIcon size={16} className="accent-icon" />
-                  <span>Telegram ogohlantirishlari uchun botga yozing:</span>
-                </p>
-                <button
-                  type="button"
-                  className="code-chip"
-                  aria-label={`${linkCommand} — nusxa olish`}
-                  onClick={() => copyLinkCommand(linkCommand)}
-                >
-                  <code>{linkCommand}</code>
-                  {copied ? <CheckIcon size={16} className="accent-icon" /> : <CopyIcon size={16} />}
-                </button>
-                <span className="sr-only" role="status">
-                  {copied ? "Nusxa olindi" : ""}
-                </span>
-              </div>
+              {TELEGRAM_BOT ? (
+                <div className="telegram">
+                  <p>
+                    <SendIcon size={16} className="accent-icon" />
+                    <span>NDVI keskin tushsa, Telegram orqali ogohlantirish oling.</span>
+                  </p>
+                  <a
+                    className="btn btn-telegram"
+                    href={`https://t.me/${TELEGRAM_BOT}?start=link_${selectedField.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <SendIcon size={16} />
+                    Telegramda ulash
+                  </a>
+                </div>
+              ) : (
+                <div className="telegram">
+                  <p>
+                    <SendIcon size={16} className="accent-icon" />
+                    <span>Telegram ogohlantirishlari uchun botga yozing:</span>
+                  </p>
+                  <button
+                    type="button"
+                    className="code-chip"
+                    aria-label={`${linkCommand} — nusxa olish`}
+                    onClick={() => copyLinkCommand(linkCommand)}
+                  >
+                    <code>{linkCommand}</code>
+                    {copied ? <CheckIcon size={16} className="accent-icon" /> : <CopyIcon size={16} />}
+                  </button>
+                  <span className="sr-only" role="status">
+                    {copied ? "Nusxa olindi" : ""}
+                  </span>
+                </div>
+              )}
               <div className="stack">
                 <button type="button" className="btn btn-primary" onClick={computeNdvi} disabled={busy}>
                   {computing ? <SpinnerIcon size={16} className="spin" /> : <ActivityIcon size={16} />}

@@ -16,6 +16,13 @@ def parse_field_id(args: str | None) -> int | None:
     return int(first) if first.isdigit() else None
 
 
+def parse_start_payload(args: str | None) -> int | None:
+    """Read the field number from a deep link payload: t.me/<bot>?start=link_3 sends "/start link_3"."""
+    if not args or not args.startswith("link_"):
+        return None
+    return parse_field_id(args.removeprefix("link_"))
+
+
 def link_chat(db: Session, chat_id: int, field_id: int) -> str:
     """Subscribe the chat to the field's alerts."""
     field = db.get(Field, field_id)
