@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -13,7 +14,6 @@ import {
   FieldsIcon,
   GlobeIcon,
   HistoryIcon,
-  LeafIcon,
   MapIcon,
   PlusIcon,
   SendIcon,
@@ -21,6 +21,7 @@ import {
   TrashIcon,
   UndoIcon,
 } from "@/components/icons";
+import LogoMark from "@/components/Logo";
 import MapSearch, { type SearchTarget } from "@/components/MapSearch";
 import MapView, { type Basemap } from "@/components/MapView";
 import NdviChart from "@/components/NdviChart";
@@ -225,13 +226,13 @@ export default function FieldMonitor() {
         <div className="sheet-handle" aria-hidden="true" />
 
         <header className="brand">
-          <div className="brand-mark" aria-hidden="true">
-            <LeafIcon size={22} />
-          </div>
-          <div>
-            <h1>NDVI monitoring</h1>
-            <p>Sentinel-2</p>
-          </div>
+          <Link href="/" className="brand-link" title="Bosh sahifa: NDVI nima?">
+            <LogoMark size={44} className="brand-mark" />
+            <div>
+              <h1>NDVI monitoring</h1>
+              <p>Sentinel-2</p>
+            </div>
+          </Link>
         </header>
 
         <section className="basemap" aria-labelledby="bm-label">
@@ -507,6 +508,9 @@ export default function FieldMonitor() {
             <span>0.35</span>
             <span>0.9</span>
           </div>
+          <Link href="/#ranglar" className="legend-link">
+            Ranglar nimani bildiradi?
+          </Link>
         </div>
       </main>
 

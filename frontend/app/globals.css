@@ -187,16 +187,22 @@ p {
   gap: 12px;
 }
 
-.brand-mark {
-  flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: #ffffff;
+.brand-link {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 10px;
+}
+
+.brand-link:hover h1 {
+  color: var(--accent);
+}
+
+.brand-mark {
+  flex: none;
+  display: block;
 }
 
 .brand h1 {
@@ -1057,6 +1063,16 @@ p {
 
 .ramp-labels span:last-child {
   text-align: right;
+}
+
+.legend-link {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.legend-link:hover {
+  color: var(--accent-hover);
 }
 
 .map-zoom {

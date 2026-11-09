@@ -101,7 +101,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000. The home page explains NDVI in simple Uzbek. The map app is at http://localhost:3000/monitoring.
 
 1. Click **Yangi maydon chizish** and click the corners of the field on the map.
 2. Type a name and click **Saqlash**.

@@ -113,6 +113,30 @@ export const AlertIcon = icon(<path d="M12 7v6M12 17h.01" />, { strokeWidth: 2.5
 
 export const CloseIcon = icon(<path d="M18 6 6 18M6 6l12 12" />);
 
+export const ArrowRightIcon = icon(<path d="M5 12h14M13 6l6 6-6 6" />);
+
+export const InfoIcon = icon(
+  <>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4M12 8h.01" />
+  </>,
+);
+
+export const WarningIcon = icon(
+  <>
+    <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+    <path d="M12 9v4M12 17h.01" />
+  </>,
+);
+
+export const WiltedLeafIcon = icon(
+  <>
+    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+    <path d="M8 11l6 6" />
+  </>,
+  { strokeWidth: 1.8 },
+);
+
 export const ExpandIcon = icon(<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />);
 
 export const ChartIcon = icon(
