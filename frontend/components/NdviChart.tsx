@@ -4,26 +4,34 @@ import { ChartIcon } from "@/components/icons";
 import type { Observation } from "@/lib/api";
 import { formatDate, ndviColor } from "@/lib/ndvi";
 
-const WIDTH = 300;
-const HEIGHT = 184;
-const PAD = { left: 32, right: 8, top: 12, bottom: 34 };
 const Y_MIN = -0.2;
 const Y_MAX = 1.0;
 const Y_TICKS = [0.25, 0.5, 0.75, 1];
 const TOOLTIP = { width: 150, height: 28 };
 
+// "compact" fits the 380 px sidebar. "large" is for the report window.
+const LAYOUTS = {
+  compact: { width: 300, height: 184, pad: { left: 32, right: 8, top: 12, bottom: 34 }, dateTicks: 2 },
+  large: { width: 960, height: 360, pad: { left: 40, right: 16, top: 16, bottom: 36 }, dateTicks: 6 },
+};
+
 type Props = {
   observations: Observation[];
   selectedId: number | null;
   onSelect: (observation: Observation) => void;
+  variant?: keyof typeof LAYOUTS;
 };
 
 function label(observation: Observation): string {
   return `${formatDate(observation.observed_on)}: NDVI ${observation.ndvi_mean.toFixed(2)}`;
 }
 
+function isoFromTime(time: number): string {
+  return new Date(time).toISOString().slice(0, 10);
+}
+
 // An SVG line chart of mean NDVI over time. A click on a point selects that observation.
-export default function NdviChart({ observations, selectedId, onSelect }: Props) {
+export default function NdviChart({ observations, selectedId, onSelect, variant = "compact" }: Props) {
   if (observations.length === 0) {
     return (
       <div className="empty">
@@ -35,6 +43,7 @@ export default function NdviChart({ observations, selectedId, onSelect }: Props)
     );
   }
 
+  const { width: WIDTH, height: HEIGHT, pad: PAD, dateTicks } = LAYOUTS[variant];
   const bottom = HEIGHT - PAD.bottom;
   const right = WIDTH - PAD.right;
   const times = observations.map((o) => new Date(o.observed_on).getTime());
@@ -50,6 +59,12 @@ export default function NdviChart({ observations, selectedId, onSelect }: Props)
   const area = `M${first.px.toFixed(1)} ${bottom} L${line.replaceAll(" ", " L")} L${last.px.toFixed(1)} ${bottom} Z`;
   const selected = points.find((p) => p.o.id === selectedId) ?? null;
 
+  // Date labels at even time steps. With one observation there is one label.
+  const tickCount = tMax === tMin ? 1 : dateTicks;
+  const xTicks = Array.from({ length: tickCount }, (_, i) =>
+    tickCount === 1 ? tMin : tMin + ((tMax - tMin) * i) / (tickCount - 1),
+  );
+
   // The tooltip sits above the selected point, or below it when there is no room above.
   let tooltip: { x: number; y: number } | null = null;
   if (selected) {
@@ -64,7 +79,7 @@ export default function NdviChart({ observations, selectedId, onSelect }: Props)
     (selected ? ` Tanlangan: ${label(selected.o)}` : "");
 
   return (
-    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="chart" role="img" aria-label={ariaLabel}>
+    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className={`chart chart-${variant}`} role="img" aria-label={ariaLabel}>
       {Y_TICKS.map((tick) => (
         <line key={tick} x1={PAD.left} x2={right} y1={y(tick)} y2={y(tick)} className="grid" />
       ))}
@@ -112,12 +127,17 @@ export default function NdviChart({ observations, selectedId, onSelect }: Props)
         </g>
       )}
 
-      <text x={PAD.left} y={HEIGHT - 12} className="tick">
-        {formatDate(first.o.observed_on)}
-      </text>
-      <text x={right} y={HEIGHT - 12} textAnchor="end" className="tick">
-        {formatDate(last.o.observed_on)}
-      </text>
+      {xTicks.map((time, i) => (
+        <text
+          key={time}
+          x={x(time)}
+          y={HEIGHT - 12}
+          textAnchor={tickCount === 1 ? "middle" : i === 0 ? "start" : i === tickCount - 1 ? "end" : "middle"}
+          className="tick"
+        >
+          {formatDate(isoFromTime(time))}
+        </text>
+      ))}
     </svg>
   );
 }

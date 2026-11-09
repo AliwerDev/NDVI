@@ -9,6 +9,7 @@ import {
   CloseIcon,
   CopyIcon,
   CrosshairIcon,
+  ExpandIcon,
   FieldsIcon,
   GlobeIcon,
   HistoryIcon,
@@ -23,8 +24,10 @@ import {
 import MapSearch, { type SearchTarget } from "@/components/MapSearch";
 import MapView, { type Basemap } from "@/components/MapView";
 import NdviChart from "@/components/NdviChart";
+import NdviReport from "@/components/NdviReport";
+import ObservationStats from "@/components/ObservationStats";
 import { api, type FieldFeature, type Observation, type ObservationImage, type Position } from "@/lib/api";
-import { daysAgo, formatDate, isoDate, NDVI_STOPS, ndviColor, ndviTextColor, seasonStart } from "@/lib/ndvi";
+import { daysAgo, formatDate, isoDate, NDVI_STOPS, seasonStart } from "@/lib/ndvi";
 
 const BASEMAPS: { value: Basemap; label: string; Icon: typeof GlobeIcon }[] = [
   { value: "satellite", label: "Sunʼiy yoʻldosh", Icon: GlobeIcon },
@@ -59,6 +62,8 @@ export default function FieldMonitor() {
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const closeReport = useCallback(() => setReportOpen(false), []);
 
   const [busy, setBusy] = useState(false);
   const [computing, setComputing] = useState(false);
@@ -109,6 +114,7 @@ export default function FieldMonitor() {
     setSelectedObservation(null);
     setOverlay(null);
     setConfirmingDelete(false);
+    setReportOpen(false);
     if (selectedId === null) return;
     run(async () => {
       const observations = await loadHistory(selectedId);
@@ -208,7 +214,6 @@ export default function FieldMonitor() {
   };
 
   const linkCommand = selectedField ? `/link ${selectedField.id}` : "";
-  const clearPercent = selectedObservation ? Math.round(selectedObservation.clear_fraction * 100) : 0;
 
   return (
     <div className="layout">
@@ -298,8 +303,8 @@ export default function FieldMonitor() {
             </div>
           </section>
         ) : (
-          <button type="button" className="btn btn-primary btn-lg" onClick={startDrawing} disabled={busy}>
-            <PlusIcon size={18} />
+          <button type="button" className="btn btn-primary" onClick={startDrawing} disabled={busy}>
+            <PlusIcon size={16} />
             Yangi maydon chizish
           </button>
         )}
@@ -409,7 +414,20 @@ export default function FieldMonitor() {
             <section className="card" aria-labelledby="ch-title">
               <div className="card-head">
                 <h2 id="ch-title">NDVI grafigi</h2>
-                {history.length > 0 && <span className="meta">{history.length} ta kuzatuv</span>}
+                {history.length > 0 && (
+                  <div className="card-head-actions">
+                    <span className="meta">{history.length} ta kuzatuv</span>
+                    <button
+                      type="button"
+                      className="icon-btn icon-btn-sm"
+                      aria-label="Hisobotni katta oynada ochish"
+                      title="Kattalashtirish"
+                      onClick={() => setReportOpen(true)}
+                    >
+                      <ExpandIcon size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
               <NdviChart
                 observations={history}
@@ -421,41 +439,7 @@ export default function FieldMonitor() {
             {selectedObservation && (
               <section className="card" aria-labelledby="st-title">
                 <h2 id="st-title">Tanlangan kuzatuv</h2>
-                <dl className="stats">
-                  <div className="stat">
-                    <dt>Sana</dt>
-                    <dd>{formatDate(selectedObservation.observed_on)}</dd>
-                  </div>
-                  <div className="stat">
-                    <dt>Oʻrtacha NDVI</dt>
-                    <dd>
-                      <span
-                        className="ndvi-badge"
-                        style={{
-                          background: ndviColor(selectedObservation.ndvi_mean),
-                          color: ndviTextColor(selectedObservation.ndvi_mean),
-                        }}
-                      >
-                        {selectedObservation.ndvi_mean.toFixed(3)}
-                      </span>
-                    </dd>
-                  </div>
-                  <div className="stat">
-                    <dt>Min / Max</dt>
-                    <dd>
-                      {selectedObservation.ndvi_min.toFixed(2)} / {selectedObservation.ndvi_max.toFixed(2)}
-                    </dd>
-                  </div>
-                  <div className="stat">
-                    <dt>Bulutsiz qism</dt>
-                    <dd className="stat-progress">
-                      <span>{clearPercent}%</span>
-                      <span className="progress" aria-hidden="true">
-                        <span style={{ width: `${clearPercent}%` }} />
-                      </span>
-                    </dd>
-                  </div>
-                </dl>
+                <ObservationStats observation={selectedObservation} />
               </section>
             )}
           </>
@@ -522,6 +506,16 @@ export default function FieldMonitor() {
           </div>
         </div>
       </main>
+
+      {reportOpen && selectedField && (
+        <NdviReport
+          field={selectedField}
+          observations={history}
+          selected={selectedObservation}
+          onSelect={setSelectedObservation}
+          onClose={closeReport}
+        />
+      )}
 
       {confirmingDelete && selectedField && (
         <div className="modal-backdrop" onClick={() => setConfirmingDelete(false)}>
