@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     # Default has no password on purpose. The real URL comes from .env.
     database_url: str = "postgresql+psycopg://postgres@localhost:5432/ndvi"
+    # Separate database for pytest. If it is not set, the database tests are skipped.
+    test_database_url: str | None = None
 
 
 @lru_cache
