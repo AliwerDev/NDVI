@@ -1,0 +1,16 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Local data (rasters, COG files)
+data/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
