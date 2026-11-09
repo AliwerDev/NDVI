@@ -76,16 +76,23 @@ function fieldsData(fields: FieldFeature[], selectedId: number | null): GeoJSON.
 }
 
 function draftData(points: Position[]): GeoJSON.FeatureCollection {
-  const features: GeoJSON.Feature[] = points.map((point) => ({
-    type: "Feature",
-    geometry: { type: "Point", coordinates: point },
-    properties: {},
-  }));
+  const features: GeoJSON.Feature[] = [];
+  if (points.length >= 3) {
+    const ring = [...points, points[0]];
+    features.push({ type: "Feature", geometry: { type: "Polygon", coordinates: [ring] }, properties: {} });
+  }
   if (points.length >= 2) {
     // Show the closing edge back to the first point as soon as there are 3 points.
     const line = points.length >= 3 ? [...points, points[0]] : points;
     features.push({ type: "Feature", geometry: { type: "LineString", coordinates: line }, properties: {} });
   }
+  points.forEach((point, index) => {
+    features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: point },
+      properties: { first: index === 0 },
+    });
+  });
   return { type: "FeatureCollection", features };
 }
 
@@ -133,19 +140,43 @@ export default function MapView(props: Props) {
           "line-width": ["case", ["get", "selected"], 3, 2],
         },
       });
+      // Draft polygon while drawing. Bright yellow with a dark outline stays visible on satellite imagery.
       map.addSource("draft", { type: "geojson", data: EMPTY });
+      map.addLayer({
+        id: "draft-fill",
+        type: "fill",
+        source: "draft",
+        filter: ["==", ["geometry-type"], "Polygon"],
+        paint: { "fill-color": "#facc15", "fill-opacity": 0.25 },
+      });
+      map.addLayer({
+        id: "draft-line-casing",
+        type: "line",
+        source: "draft",
+        filter: ["==", ["geometry-type"], "LineString"],
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": "#111827", "line-width": 7, "line-opacity": 0.7 },
+      });
       map.addLayer({
         id: "draft-line",
         type: "line",
         source: "draft",
-        paint: { "line-color": "#dc2626", "line-width": 2, "line-dasharray": [2, 1] },
+        filter: ["==", ["geometry-type"], "LineString"],
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: { "line-color": "#facc15", "line-width": 3.5 },
       });
       map.addLayer({
         id: "draft-points",
         type: "circle",
         source: "draft",
         filter: ["==", ["geometry-type"], "Point"],
-        paint: { "circle-radius": 5, "circle-color": "#dc2626", "circle-stroke-color": "#fff", "circle-stroke-width": 2 },
+        paint: {
+          // The first point is bigger, so the user sees where the polygon closes.
+          "circle-radius": ["case", ["get", "first"], 9, 7],
+          "circle-color": ["case", ["get", "first"], "#22c55e", "#facc15"],
+          "circle-stroke-color": "#111827",
+          "circle-stroke-width": 2.5,
+        },
       });
       setLoaded(true);
     });
