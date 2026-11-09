@@ -6,7 +6,7 @@ import { CloseIcon } from "@/components/icons";
 import NdviChart from "@/components/NdviChart";
 import ObservationStats from "@/components/ObservationStats";
 import type { FieldFeature, Observation } from "@/lib/api";
-import { formatDate, ndviColor } from "@/lib/ndvi";
+import { formatDateLong, ndviColor } from "@/lib/ndvi";
 
 type Props = {
   field: FieldFeature;
@@ -32,7 +32,7 @@ export default function NdviReport({ field, observations, selected, onSelect, on
   const newestFirst = [...observations].reverse();
   const period =
     observations.length > 0
-      ? `${formatDate(observations[0].observed_on)} – ${formatDate(observations[observations.length - 1].observed_on)}`
+      ? `${formatDateLong(observations[0].observed_on)} – ${formatDateLong(observations[observations.length - 1].observed_on)}`
       : null;
 
   return (
@@ -79,7 +79,7 @@ export default function NdviReport({ field, observations, selected, onSelect, on
               <h3 id="report-stats-title" className="card-title">
                 Tanlangan kuzatuv
               </h3>
-              <ObservationStats observation={selected} columns={4} />
+              <ObservationStats observation={selected} columns={4} longDate />
             </section>
           )}
 
@@ -106,7 +106,7 @@ export default function NdviReport({ field, observations, selected, onSelect, on
                         <tr key={o.id} className={active ? "active" : undefined} onClick={() => onSelect(o)}>
                           <td>
                             <button type="button" className="row-select" aria-pressed={active}>
-                              {formatDate(o.observed_on)}
+                              {formatDateLong(o.observed_on)}
                             </button>
                           </td>
                           <td>

@@ -60,3 +60,25 @@ export function formatDate(iso: string): string {
   const [year, month, day] = iso.split("-");
   return `${day}.${month}.${year}`;
 }
+
+// Intl has no reliable Uzbek (Latin) month names in every browser, so the names are listed here.
+const MONTHS_UZ = [
+  "yanvar",
+  "fevral",
+  "mart",
+  "aprel",
+  "may",
+  "iyun",
+  "iyul",
+  "avgust",
+  "sentyabr",
+  "oktyabr",
+  "noyabr",
+  "dekabr",
+];
+
+/** "2026-06-12" → "12-iyun 2026". For the report window, where there is room for the month name. */
+export function formatDateLong(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  return `${Number(day)}-${MONTHS_UZ[Number(month) - 1]} ${year}`;
+}

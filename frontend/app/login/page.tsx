@@ -1,42 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 
-import { AlertIcon, SendIcon, SpinnerIcon } from "@/components/icons";
-import LogoMark from "@/components/Logo";
+import AuthShell from "@/components/AuthShell";
+import { AlertIcon, EyeIcon, EyeOffIcon, LockIcon, SendIcon, SpinnerIcon } from "@/components/icons";
 import { api, ApiError, type AuthResult } from "@/lib/api";
-import { clearToken, getToken, safeNextPath, setToken } from "@/lib/auth";
+import { authPath, clearToken, currentNext, getToken, goNext, setToken } from "@/lib/auth";
+import { authErrorText } from "@/lib/authErrors";
 
-import "./login.css";
+type Tab = "telegram" | "password";
 
-type Mode = "login" | "register";
-
+const TABS: Tab[] = ["telegram", "password"];
 const POLL_INTERVAL_MS = 2000;
 
-function errorText(err: unknown, mode: Mode): string {
-  if (err instanceof ApiError) {
-    if (err.status === 401) return "Login yoki parol notoʻgʻri.";
-    if (err.status === 409) return "Bu login band. Boshqasini tanlang.";
-    if (err.status === 422) return "Login 3–32 belgi: kichik lotin harflari, raqam, «_» yoki «.». Parol kamida 8 belgi.";
-    if (err.status === 503) return "Telegram bot hozir ishlamayapti. Login va parol bilan kiring.";
-  }
-  if (err instanceof TypeError) return "Server bilan aloqa yoʻq. Internetni tekshirib, qayta urinib koʻring.";
-  return mode === "register" ? "Roʻyxatdan oʻtib boʻlmadi. Qayta urinib koʻring." : "Kirib boʻlmadi. Qayta urinib koʻring.";
-}
-
-function goNext() {
-  const next = new URLSearchParams(window.location.search).get("next");
-  window.location.replace(safeNextPath(next));
-}
-
 export default function LoginPage() {
-  const [mode, setMode] = useState<Mode>("login");
+  const [tab, setTab] = useState<Tab>("telegram");
+  const [next, setNext] = useState<string | null>(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [password2, setPassword2] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ telegram: null, password: null });
 
   // Telegram login: the t.me link and the poll timer while the browser waits for the bot.
   const [telegramUrl, setTelegramUrl] = useState<string | null>(null);
@@ -48,6 +34,12 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => stopPolling, [stopPolling]);
+
+  // The URL is read after mount: the server render has no window.
+  useEffect(() => {
+    setNext(currentNext());
+    if (new URLSearchParams(window.location.search).get("tab") === "password") setTab("password");
+  }, []);
 
   // Already signed in: go on. A stale token is dropped, and the form stays.
   useEffect(() => {
@@ -66,15 +58,11 @@ export default function LoginPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (mode === "register" && password !== password2) {
-      setError("Parollar bir xil emas.");
-      return;
-    }
     setBusy(true);
     try {
-      finish(mode === "register" ? await api.register(username, password) : await api.login(username, password));
+      finish(await api.login(username, password));
     } catch (err) {
-      setError(errorText(err, mode));
+      setError(authErrorText(err, "login"));
       setBusy(false);
     }
   };
@@ -83,13 +71,13 @@ export default function LoginPage() {
     setError(null);
     stopPolling();
     // Open the tab now, inside the click. A tab opened after an await is often blocked as a popup.
-    const tab = window.open("", "_blank");
+    const popup = window.open("", "_blank");
     try {
       const start = await api.telegramLoginStart();
       setTelegramUrl(start.url);
-      if (tab) {
-        tab.opener = null;
-        tab.location.href = start.url;
+      if (popup) {
+        popup.opener = null;
+        popup.location.href = start.url;
       }
       pollRef.current = setInterval(async () => {
         try {
@@ -104,13 +92,13 @@ export default function LoginPage() {
           setError(
             err instanceof ApiError && err.status === 410
               ? "Kutish vaqti tugadi. «Telegram orqali kirish» tugmasini qayta bosing."
-              : errorText(err, "login"),
+              : authErrorText(err, "login"),
           );
         }
       }, POLL_INTERVAL_MS);
     } catch (err) {
-      tab?.close();
-      setError(errorText(err, "login"));
+      popup?.close();
+      setError(authErrorText(err, "login"));
     }
   };
 
@@ -119,132 +107,169 @@ export default function LoginPage() {
     setTelegramUrl(null);
   };
 
-  const switchMode = (next: Mode) => {
-    setMode(next);
+  const selectTab = (nextTab: Tab) => {
+    if (nextTab === tab) return;
+    cancelTelegram();
+    setTab(nextTab);
     setError(null);
   };
 
+  // Arrow keys move between the tabs, as in the WAI-ARIA tabs pattern.
+  const onTabKey = (event: KeyboardEvent) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const other = TABS[(TABS.indexOf(tab) + 1) % TABS.length];
+    selectTab(other);
+    tabRefs.current[other]?.focus();
+  };
+
+  const errorBlock = error && (
+    <p className="auth-error" role="alert">
+      <AlertIcon size={18} />
+      <span>{error}</span>
+    </p>
+  );
+
   return (
-    <div className="auth">
-      <Link href="/" className="auth-logo">
-        <LogoMark size={40} />
-        <span>NDVI monitoring</span>
-      </Link>
+    <AuthShell titleId="auth-title">
+      <div className="auth-head">
+        <h1 id="auth-title">Kirish</h1>
+        <p>Kirish usulini tanlang.</p>
+      </div>
 
-      <main className="auth-card">
-        <div className="auth-head">
-          <h1>{mode === "login" ? "Xush kelibsiz" : "Hisob yaratish"}</h1>
-          <p>
-            {mode === "login"
-              ? "Dalalaringizni koʻrish uchun hisobingizga kiring."
-              : "Login va parol tanlang. Keyin dalangizni xaritada chizasiz."}
-          </p>
-        </div>
+      <div role="tablist" aria-label="Kirish usuli" className="auth-tabs" onKeyDown={onTabKey}>
+        <button
+          ref={(el) => {
+            tabRefs.current.telegram = el;
+          }}
+          type="button"
+          role="tab"
+          id="tab-telegram"
+          aria-selected={tab === "telegram"}
+          aria-controls="panel-telegram"
+          tabIndex={tab === "telegram" ? 0 : -1}
+          onClick={() => selectTab("telegram")}
+        >
+          <SendIcon size={16} className="tab-icon-telegram" />
+          Telegram
+        </button>
+        <button
+          ref={(el) => {
+            tabRefs.current.password = el;
+          }}
+          type="button"
+          role="tab"
+          id="tab-password"
+          aria-selected={tab === "password"}
+          aria-controls="panel-password"
+          tabIndex={tab === "password" ? 0 : -1}
+          onClick={() => selectTab("password")}
+        >
+          <LockIcon size={16} className="tab-icon-lock" />
+          Login va parol
+        </button>
+      </div>
 
-        <div role="radiogroup" aria-label="Kirish usuli" className="segmented">
-          <button type="button" role="radio" aria-checked={mode === "login"} onClick={() => switchMode("login")}>
-            Kirish
-          </button>
-          <button type="button" role="radio" aria-checked={mode === "register"} onClick={() => switchMode("register")}>
-            Roʻyxatdan oʻtish
-          </button>
-        </div>
-
-        {telegramUrl ? (
-          <div className="auth-telegram-wait" role="status">
-            <span className="auth-telegram-icon">
-              <SpinnerIcon size={22} className="spin" />
-            </span>
-            <p>
-              Telegram ochildi. Botda <strong>«Start»</strong> tugmasini bosing, sahifa oʻzi kiradi.
-            </p>
-            <a className="btn btn-telegram" href={telegramUrl} target="_blank" rel="noopener noreferrer">
-              <SendIcon size={16} />
-              Telegramni qayta ochish
-            </a>
-            <button type="button" className="btn btn-muted" onClick={cancelTelegram}>
-              Bekor qilish
-            </button>
-          </div>
-        ) : (
-          <>
-            <form className="auth-form" onSubmit={submit}>
-              <div className="input-group">
-                <label htmlFor="username" className="label">
-                  Login
-                </label>
-                <input
-                  id="username"
-                  className="input"
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="input-group">
-                <label htmlFor="password" className="label">
-                  Parol
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  className="input"
-                  autoComplete={mode === "login" ? "current-password" : "new-password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  minLength={mode === "register" ? 8 : undefined}
-                  required
-                />
-              </div>
-              {mode === "register" && (
-                <div className="input-group">
-                  <label htmlFor="password2" className="label">
-                    Parolni takrorlang
-                  </label>
-                  <input
-                    id="password2"
-                    type="password"
-                    className="input"
-                    autoComplete="new-password"
-                    value={password2}
-                    onChange={(e) => setPassword2(e.target.value)}
-                    required
-                  />
-                  <span className="auth-hint">Kamida 8 belgi.</span>
-                </div>
-              )}
-
-              {error && (
-                <p className="auth-error" role="alert">
-                  <AlertIcon size={16} />
-                  <span>{error}</span>
+      {tab === "telegram" ? (
+        <div role="tabpanel" id="panel-telegram" aria-labelledby="tab-telegram" className="auth-panel">
+          {telegramUrl ? (
+            <>
+              <div className="auth-status" role="status">
+                <SpinnerIcon size={20} className="spin" />
+                <p>
+                  Telegram ilovasida kirishni tasdiqlang: botda <strong>«Start»</strong> tugmasini bosing. Sahifa oʻzi
+                  kiradi.
                 </p>
-              )}
-
-              <button type="submit" className="btn btn-primary" disabled={busy}>
-                {busy && <SpinnerIcon size={16} className="spin" />}
-                {mode === "login" ? "Kirish" : "Roʻyxatdan oʻtish"}
+              </div>
+              <a
+                className="btn btn-lg btn-telegram auth-link-btn"
+                href={telegramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <SendIcon size={18} />
+                Telegramni qayta ochish
+              </a>
+              <button type="button" className="btn btn-outline" onClick={cancelTelegram}>
+                Bekor qilish
               </button>
-            </form>
-
-            <div className="auth-divider">
-              <span>yoki</span>
+            </>
+          ) : (
+            <>
+              <p>Telegram hisobingiz orqali bir bosishda kiring. Ogohlantirishlar ham shu hisobga keladi.</p>
+              {errorBlock}
+              <button type="button" className="btn btn-lg btn-telegram" onClick={startTelegram}>
+                <SendIcon size={18} />
+                Telegram orqali kirish
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
+        <form
+          role="tabpanel"
+          id="panel-password"
+          aria-labelledby="tab-password"
+          className="auth-form"
+          onSubmit={submit}
+        >
+          {errorBlock}
+          <div className="input-group">
+            <label htmlFor="username" className="label">
+              Login
+            </label>
+            <input
+              id="username"
+              className={`input${error ? " invalid" : ""}`}
+              placeholder="Foydalanuvchi nomi"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                setError(null);
+              }}
+              required
+            />
+          </div>
+          <div className="input-group">
+            <label htmlFor="password" className="label">
+              Parol
+            </label>
+            <div className={`auth-password${error ? " invalid" : ""}`}>
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Parol"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError(null);
+                }}
+                required
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? "Parolni yashirish" : "Parolni koʻrsatish"}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+              </button>
             </div>
+          </div>
+          <button type="submit" className="btn btn-lg btn-primary" disabled={busy}>
+            {busy && <SpinnerIcon size={16} className="spin" />}
+            {busy ? "Kuting…" : "Kirish"}
+          </button>
+        </form>
+      )}
 
-            <button type="button" className="btn btn-telegram" onClick={startTelegram} disabled={busy}>
-              <SendIcon size={16} />
-              Telegram orqali kirish
-            </button>
-          </>
-        )}
-      </main>
-
-      <Link href="/" className="auth-back">
-        NDVI nima? Bosh sahifaga qaytish
-      </Link>
-    </div>
+      <p className="auth-footer">
+        Hisobingiz yoʻqmi? <Link href={authPath("/register", next)}>Roʻyxatdan oʻting</Link>
+      </p>
+    </AuthShell>
   );
 }

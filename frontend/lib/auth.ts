@@ -35,3 +35,20 @@ export function loginUrl(): string {
 export function safeNextPath(next: string | null): string {
   return next && next.startsWith("/") && !next.startsWith("//") ? next : "/monitoring";
 }
+
+/** The "next" value of the current URL, or null. */
+export function currentNext(): string | null {
+  return new URLSearchParams(window.location.search).get("next");
+}
+
+/** Go to the page that sent the user to the login page. */
+export function goNext(): void {
+  window.location.replace(safeNextPath(currentNext()));
+}
+
+/** An auth page path that keeps the "next" value of the current URL. Use it from client code only. */
+export function authPath(path: string, next: string | null = currentNext()): string {
+  if (!next) return path;
+  const joiner = path.includes("?") ? "&" : "?";
+  return `${path}${joiner}next=${encodeURIComponent(next)}`;
+}

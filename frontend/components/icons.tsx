@@ -120,7 +120,30 @@ export const LogoutIcon = icon(
   </>,
 );
 
-export const ArrowRightIcon = icon(<path d="M5 12h14M13 6l6 6-6 6" />);
+export const LockIcon = icon(
+  <>
+    <rect x="4" y="11" width="16" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </>,
+);
+
+export const EyeIcon = icon(
+  <>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+    <circle cx="12" cy="12" r="3" />
+  </>,
+);
+
+export const EyeOffIcon = icon(
+  <>
+    <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 8 10 8a17.6 17.6 0 0 1-2.2 3.2" />
+    <path d="M14.1 14.2a3 3 0 1 1-4.2-4.3" />
+    <path d="M17.5 17.5A10 10 0 0 1 12 19c-6.5 0-10-7-10-7a17.9 17.9 0 0 1 4.5-5.5" />
+    <path d="m2 2 20 20" />
+  </>,
+);
+
+export const ArrowRightIcon =icon(<path d="M5 12h14M13 6l6 6-6 6" />);
 
 export const InfoIcon = icon(
   <>

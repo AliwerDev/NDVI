@@ -1,19 +1,21 @@
 import type { Observation } from "@/lib/api";
-import { formatDate, ndviColor, ndviTextColor } from "@/lib/ndvi";
+import { formatDate, formatDateLong, ndviColor, ndviTextColor } from "@/lib/ndvi";
 
 type Props = {
   observation: Observation;
   columns?: 2 | 4;
+  /** Show the month name, for example "12-iyun 2026". */
+  longDate?: boolean;
 };
 
 // Four stat tiles for one NDVI observation.
-export default function ObservationStats({ observation, columns = 2 }: Props) {
+export default function ObservationStats({ observation, columns = 2, longDate = false }: Props) {
   const clearPercent = Math.round(observation.clear_fraction * 100);
   return (
     <dl className={columns === 4 ? "stats stats-4" : "stats"}>
       <div className="stat">
         <dt>Sana</dt>
-        <dd>{formatDate(observation.observed_on)}</dd>
+        <dd>{(longDate ? formatDateLong : formatDate)(observation.observed_on)}</dd>
       </div>
       <div className="stat">
         <dt>Oʻrtacha NDVI</dt>
