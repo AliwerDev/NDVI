@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import MapSearch, { type SearchTarget } from "@/components/MapSearch";
 import MapView, { type Basemap } from "@/components/MapView";
 import NdviChart from "@/components/NdviChart";
 import { api, type FieldFeature, type Observation, type ObservationImage, type Position } from "@/lib/api";
@@ -18,6 +19,7 @@ export default function FieldMonitor() {
   const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
   const [overlay, setOverlay] = useState<ObservationImage | null>(null);
   const [basemap, setBasemap] = useState<Basemap>("satellite");
+  const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
 
   const [drawing, setDrawing] = useState(false);
   const [draftPoints, setDraftPoints] = useState<Position[]>([]);
@@ -292,6 +294,7 @@ export default function FieldMonitor() {
       </aside>
 
       <main className="map-wrap">
+        <MapSearch onSelect={setSearchTarget} />
         <MapView
           fields={fields}
           selectedId={selectedId}
@@ -301,6 +304,7 @@ export default function FieldMonitor() {
           onAddPoint={(point) => setDraftPoints((points) => [...points, point])}
           overlay={overlay}
           basemap={basemap}
+          searchTarget={searchTarget}
         />
       </main>
     </div>

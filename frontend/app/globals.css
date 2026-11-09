@@ -203,6 +203,43 @@ select {
   color: var(--muted);
 }
 
+.map-search {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  width: min(360px, calc(100% - 24px));
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+
+.map-search form {
+  display: flex;
+  gap: 6px;
+}
+
+.map-search input {
+  margin: 0;
+}
+
+.map-search p {
+  margin: 6px 0 0;
+}
+
+.search-results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.search-results li + li {
+  border-top: 1px solid var(--border);
+}
+
 @media (max-width: 800px) {
   .layout {
     flex-direction: column-reverse;

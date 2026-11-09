@@ -7,10 +7,12 @@ import {
   type LngLatBoundsLike,
   Map as MapLibreMap,
   type MapMouseEvent,
+  Marker,
   type StyleSpecification,
 } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 
+import type { SearchTarget } from "@/components/MapSearch";
 import type { FieldFeature, ObservationImage, Position } from "@/lib/api";
 
 export type Basemap = "osm" | "satellite";
@@ -50,6 +52,7 @@ type Props = {
   onAddPoint: (point: Position) => void;
   overlay: ObservationImage | null;
   basemap: Basemap;
+  searchTarget: SearchTarget | null;
 };
 
 function boundsOf(features: FieldFeature[]): LngLatBoundsLike | null {
@@ -87,9 +90,10 @@ function draftData(points: Position[]): GeoJSON.FeatureCollection {
 }
 
 export default function MapView(props: Props) {
-  const { fields, selectedId, drawing, draftPoints, overlay, basemap } = props;
+  const { fields, selectedId, drawing, draftPoints, overlay, basemap, searchTarget } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const markerRef = useRef<Marker | null>(null);
   const [loaded, setLoaded] = useState(false);
   const fittedToAllRef = useRef(false);
 
@@ -220,6 +224,19 @@ export default function MapView(props: Props) {
     map.setLayoutProperty("osm", "visibility", basemap === "osm" ? "visible" : "none");
     map.setLayoutProperty("satellite", "visibility", basemap === "satellite" ? "visible" : "none");
   }, [loaded, basemap]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loaded || !searchTarget) return;
+    if (searchTarget.bbox) {
+      map.fitBounds(searchTarget.bbox, { padding: 40, maxZoom: 16 });
+    } else {
+      map.flyTo({ center: searchTarget.center, zoom: 16 });
+    }
+    // One marker shows the last search result.
+    markerRef.current?.remove();
+    markerRef.current = new Marker({ color: "#dc2626" }).setLngLat(searchTarget.center).addTo(map);
+  }, [loaded, searchTarget]);
 
   return <div ref={containerRef} className="map" />;
 }
