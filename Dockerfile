@@ -1,5 +1,10 @@
 FROM python:3.12-slim
 
+# The rasterio wheel bundles GDAL, but GDAL needs libexpat, which the slim image does not have.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libexpat1 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=ghcr.io/astral-sh/uv:0.8.0 /uv /usr/local/bin/uv
 
 ENV UV_COMPILE_BYTECODE=1 \

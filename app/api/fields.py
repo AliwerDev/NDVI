@@ -43,7 +43,7 @@ def _to_feature(field: Field) -> FieldFeature:
     )
 
 
-def _get_field_or_404(db: Session, field_id: int) -> Field:
+def get_field_or_404(db: Session, field_id: int) -> Field:
     field = db.get(Field, field_id)
     if field is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Field not found")
@@ -71,13 +71,13 @@ def list_fields(db: DbSession) -> FieldFeatureCollection:
 @router.get("/{field_id}")
 def get_field(field_id: int, db: DbSession) -> FieldFeature:
     """Return one field."""
-    return _to_feature(_get_field_or_404(db, field_id))
+    return _to_feature(get_field_or_404(db, field_id))
 
 
 @router.patch("/{field_id}")
 def update_field(field_id: int, body: FieldUpdate, db: DbSession) -> FieldFeature:
     """Change the name and/or the geometry of a field."""
-    field = _get_field_or_404(db, field_id)
+    field = get_field_or_404(db, field_id)
     if body.name is not None:
         field.name = body.name
     if body.geometry is not None:
@@ -90,7 +90,7 @@ def update_field(field_id: int, body: FieldUpdate, db: DbSession) -> FieldFeatur
 @router.delete("/{field_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_field(field_id: int, db: DbSession) -> None:
     """Delete a field."""
-    field = _get_field_or_404(db, field_id)
+    field = get_field_or_404(db, field_id)
     db.delete(field)
     db.commit()
 
@@ -102,7 +102,7 @@ def get_best_scene(field_id: int, start: date, end: date, db: DbSession) -> Scen
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="start must be on or before end"
         )
-    field = _get_field_or_404(db, field_id)
+    field = get_field_or_404(db, field_id)
 
     try:
         scene = find_best_scene(to_shape(field.geometry), start, end)

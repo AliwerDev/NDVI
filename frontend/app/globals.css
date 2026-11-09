@@ -1,0 +1,219 @@
+:root {
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+  --danger: #dc2626;
+  --ok: #15803d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.layout {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 380px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.map-wrap {
+  flex: 1;
+  position: relative;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+h2 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+h3 {
+  font-size: 14px;
+  margin: 12px 0 4px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+button {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.secondary {
+  background: var(--muted);
+}
+
+button.danger {
+  background: var(--danger);
+}
+
+button.link {
+  background: none;
+  color: var(--text);
+  padding: 4px 0;
+  text-align: left;
+}
+
+button.link.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+input,
+select {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.row select {
+  width: auto;
+  margin: 0;
+}
+
+.field-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 4px 0;
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.error {
+  color: var(--danger);
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+}
+
+.chart .grid {
+  stroke: var(--border);
+}
+
+.chart .tick {
+  font-size: 9px;
+  fill: var(--muted);
+}
+
+.chart .line {
+  fill: none;
+  stroke: #15803d;
+  stroke-width: 2;
+}
+
+.chart .point {
+  fill: #15803d;
+  cursor: pointer;
+}
+
+.chart .point.selected {
+  fill: var(--accent);
+}
+
+.stats {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.stats th {
+  text-align: left;
+  font-weight: normal;
+  color: var(--muted);
+  padding: 2px 0;
+}
+
+.legend .ramp {
+  height: 12px;
+  border-radius: 3px;
+  margin-top: 4px;
+}
+
+.legend .ramp-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media (max-width: 800px) {
+  .layout {
+    flex-direction: column-reverse;
+    height: auto;
+  }
+
+  .sidebar {
+    width: 100%;
+    border-right: none;
+  }
+
+  .map-wrap {
+    height: 60vh;
+  }
+}

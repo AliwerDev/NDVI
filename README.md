@@ -2,7 +2,7 @@
 
 A field-monitoring service for farmers in Uzbekistan. The service computes NDVI from Sentinel-2 imagery for each field.
 
-Status: Milestone 3 (Sentinel-2 scene search). The full README comes in Milestone 9.
+Status: Milestone 4 (NDVI for one date). The full README comes in Milestone 9.
 
 ## Requirements
 
@@ -51,6 +51,7 @@ uv run pytest
 | `PATCH` | `/fields/{id}` | Changes `name` and/or `geometry`. |
 | `DELETE` | `/fields/{id}` | Deletes a field (204). |
 | `GET` | `/fields/{id}/scenes/best?start=YYYY-MM-DD&end=YYYY-MM-DD` | Returns the newest Sentinel-2 scene for the field, or 404. |
+| `POST` | `/fields/{id}/ndvi?start=YYYY-MM-DD&end=YYYY-MM-DD` | Computes NDVI for the newest clear scene and saves a COG. Returns the statistics, or 404. |
 
 Request body for `POST /fields`. GeoJSON uses the order `[longitude, latitude]`:
 
@@ -76,4 +77,14 @@ A scene is a candidate when all of these conditions are true:
 
 From the candidates, the service picks the newest scene.
 
-The cloud cover value applies to the full tile (about 110 × 110 km), not to the field. Milestone 4 checks the clouds over the field with the `SCL` band.
+The cloud cover value applies to the full tile (about 110 × 110 km), not to the field. The NDVI step checks the clouds over the field with the `SCL` band.
+
+## NDVI
+
+`NDVI = (B08 - B04) / (B08 + B04)`
+
+1. The service reads only the area around the field from the COG files over HTTPS.
+2. It removes the `+1000` offset from the pixel values. All data from processing baseline 04.00 (January 2022) and later has this offset.
+3. It keeps a pixel only if the pixel is inside the field and its `SCL` class is 4 (vegetation), 5 (bare soil), or 6 (water).
+4. If less than `MIN_CLEAR_FRACTION` of the field is clear (default: 0.8), the service tries the next older scene. It tries at most 5 scenes.
+5. The service saves the result as a float32 COG in `data/ndvi/{field_id}/{date}_{scene_id}.tif`. The value is `NaN` outside the field and under clouds.

@@ -14,6 +14,13 @@ dependencies = [
     "alembic>=1.14",
     "shapely>=2.0",
     "pystac-client>=0.8",
+    "planetary-computer>=1.0",
+    "rasterio>=1.4",
+    "numpy>=2.0",
+    "apscheduler>=3.10,<4",
+    "aiogram>=3.13",
+    # Time zone data for Asia/Tashkent; the slim Docker image has no system time zone files.
+    "tzdata>=2024.1",
 ]
 
 [dependency-groups]

@@ -7,12 +7,15 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
+from geoalchemy2.shape import from_shape
+from shapely.geometry import box
 from sqlalchemy import Engine, create_engine, make_url, text
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
 from app.main import app
+from app.models import Field
 
 ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
 
@@ -72,6 +75,15 @@ def db_session(db_engine: Engine) -> Iterator[Session]:
     session.close()
     transaction.rollback()
     connection.close()
+
+
+@pytest.fixture
+def field(db_session: Session) -> Field:
+    """A stored field: a small square near Tashkent."""
+    field = Field(name="Paxta-1", geometry=from_shape(box(69.20, 41.30, 69.21, 41.31), srid=4326))
+    db_session.add(field)
+    db_session.commit()
+    return field
 
 
 @pytest.fixture

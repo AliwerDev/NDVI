@@ -23,6 +23,27 @@ class Settings(BaseSettings):
     # Max scene cloud cover in percent. It is measured for the whole tile, not for the field.
     max_cloud_cover: float = 20.0
 
+    # NDVI
+    # Folder for output files (NDVI COGs). Relative paths start from the working directory.
+    data_dir: str = "data"
+    # Share of field pixels (0..1) that must be clear in SCL. Cloudier scenes are skipped.
+    min_clear_fraction: float = 0.8
+
+    # Alerts and scheduler
+    # Alert when mean NDVI falls by at least this much since the previous observation (absolute value).
+    ndvi_drop_threshold: float = 0.15
+    scheduler_timezone: str = "Asia/Tashkent"
+    scheduler_hour: int = 7
+    scheduler_minute: int = 0
+    # A field without observations is searched for this many days back.
+    scheduler_lookback_days: int = 10
+
+    # Telegram. Without a token the bot does not start and alerts are not sent.
+    telegram_bot_token: str | None = None
+
+    # Comma-separated list of web origins that may call the API from a browser (the frontend).
+    cors_origins: str = "http://localhost:3000"
+
 
 @lru_cache
 def get_settings() -> Settings:

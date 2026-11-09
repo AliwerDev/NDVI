@@ -19,13 +19,15 @@ REQUIRED_ASSETS = ("B04", "B08", "SCL")
 class Scene:
     """One Sentinel-2 scene picked for a field.
 
-    The asset URLs are not signed. Sign them just before reading (Milestone 4), because signed URLs expire.
+    The asset URLs are not signed. Sign them just before reading, because signed URLs expire.
     """
 
     id: str
     datetime: datetime
     cloud_cover: float
     assets: dict[str, str]
+    # For example "05.13". Since baseline 04.00 the pixel values include an offset of +1000.
+    processing_baseline: str | None = None
 
 
 def search_scenes(
@@ -48,10 +50,13 @@ def search_scenes(
     return list(search.items())
 
 
-def pick_best_scene(
+def rank_scenes(
     items: Iterable[pystac.Item], polygon: BaseGeometry, max_cloud_cover: float
-) -> Scene | None:
-    """Pick the newest item that fully covers the polygon, has all bands, and is not too cloudy."""
+) -> list[Scene]:
+    """Return usable scenes, newest first.
+
+    A scene is usable if it fully covers the polygon, has all bands, and is not too cloudy.
+    """
     candidates = [
         item
         for item in items
@@ -62,24 +67,41 @@ def pick_best_scene(
         and item.geometry is not None
         and shape(item.geometry).covers(polygon)
     ]
-    if not candidates:
-        return None
+    # Newest first. For two tiles of the same pass, the less cloudy one comes first.
+    candidates.sort(key=lambda item: (item.datetime, -item.properties["eo:cloud_cover"]), reverse=True)
+    return [
+        Scene(
+            id=item.id,
+            datetime=item.datetime,
+            cloud_cover=item.properties["eo:cloud_cover"],
+            assets={key: item.assets[key].href for key in REQUIRED_ASSETS},
+            processing_baseline=item.properties.get("s2:processing_baseline"),
+        )
+        for item in candidates
+    ]
 
-    # Newest first. For two tiles of the same pass, prefer the less cloudy one.
-    best = max(candidates, key=lambda item: (item.datetime, -item.properties["eo:cloud_cover"]))
-    return Scene(
-        id=best.id,
-        datetime=best.datetime,
-        cloud_cover=best.properties["eo:cloud_cover"],
-        assets={key: best.assets[key].href for key in REQUIRED_ASSETS},
-    )
+
+def pick_best_scene(
+    items: Iterable[pystac.Item], polygon: BaseGeometry, max_cloud_cover: float
+) -> Scene | None:
+    """Return the newest usable scene, or None."""
+    scenes = rank_scenes(items, polygon, max_cloud_cover)
+    return scenes[0] if scenes else None
+
+
+def find_scenes(
+    polygon: BaseGeometry, start: date, end: date, max_cloud_cover: float | None = None
+) -> list[Scene]:
+    """Search the STAC API and return usable scenes for the polygon, newest first."""
+    if max_cloud_cover is None:
+        max_cloud_cover = get_settings().max_cloud_cover
+    items = search_scenes(polygon, start, end, max_cloud_cover)
+    return rank_scenes(items, polygon, max_cloud_cover)
 
 
 def find_best_scene(
     polygon: BaseGeometry, start: date, end: date, max_cloud_cover: float | None = None
 ) -> Scene | None:
-    """Search the STAC API and return the best scene for the polygon, or None."""
-    if max_cloud_cover is None:
-        max_cloud_cover = get_settings().max_cloud_cover
-    items = search_scenes(polygon, start, end, max_cloud_cover)
-    return pick_best_scene(items, polygon, max_cloud_cover)
+    """Search the STAC API and return the newest usable scene, or None."""
+    scenes = find_scenes(polygon, start, end, max_cloud_cover)
+    return scenes[0] if scenes else None

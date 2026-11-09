@@ -27,7 +27,33 @@ services:
       - ./app:/code/app
       # New migration files created in the container appear on the host.
       - ./alembic:/code/alembic
+      # NDVI COG files are saved here and are visible on the host.
+      - ./data:/code/data
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  scheduler:
+    build: .
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/code/app
+      - ./data:/code/data
+    command: ["python", "-m", "app.scheduler"]
+    restart: unless-stopped
+
+  bot:
+    build: .
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/code/app
+    command: ["python", "-m", "app.bot"]
+    # Without TELEGRAM_BOT_TOKEN the bot exits with code 0, and "on-failure" does not restart it.
+    restart: on-failure
 
 volumes:
   pgdata:
