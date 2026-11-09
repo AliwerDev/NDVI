@@ -1,14 +1,16 @@
 "use client";
 
+import { ChartIcon } from "@/components/icons";
 import type { Observation } from "@/lib/api";
-import { formatDate } from "@/lib/ndvi";
+import { formatDate, ndviColor } from "@/lib/ndvi";
 
-const WIDTH = 320;
-const HEIGHT = 170;
-const PAD = { left: 34, right: 10, top: 10, bottom: 26 };
+const WIDTH = 300;
+const HEIGHT = 184;
+const PAD = { left: 32, right: 8, top: 12, bottom: 34 };
 const Y_MIN = -0.2;
 const Y_MAX = 1.0;
-const Y_TICKS = [0, 0.25, 0.5, 0.75, 1];
+const Y_TICKS = [0.25, 0.5, 0.75, 1];
+const TOOLTIP = { width: 150, height: 28 };
 
 type Props = {
   observations: Observation[];
@@ -16,53 +18,105 @@ type Props = {
   onSelect: (observation: Observation) => void;
 };
 
-// A small SVG line chart of mean NDVI over time. A click on a point selects that observation.
+function label(observation: Observation): string {
+  return `${formatDate(observation.observed_on)}: NDVI ${observation.ndvi_mean.toFixed(2)}`;
+}
+
+// An SVG line chart of mean NDVI over time. A click on a point selects that observation.
 export default function NdviChart({ observations, selectedId, onSelect }: Props) {
   if (observations.length === 0) {
-    return <p className="muted">Hali NDVI maʼlumoti yoʻq.</p>;
+    return (
+      <div className="empty">
+        <span className="empty-icon">
+          <ChartIcon size={22} />
+        </span>
+        <p>Hali NDVI maʼlumoti yoʻq.</p>
+      </div>
+    );
   }
 
+  const bottom = HEIGHT - PAD.bottom;
+  const right = WIDTH - PAD.right;
   const times = observations.map((o) => new Date(o.observed_on).getTime());
   const tMin = Math.min(...times);
   const tMax = Math.max(...times);
-  const x = (t: number) =>
-    tMax === tMin
-      ? (PAD.left + WIDTH - PAD.right) / 2
-      : PAD.left + ((t - tMin) / (tMax - tMin)) * (WIDTH - PAD.left - PAD.right);
-  const y = (v: number) =>
-    PAD.top + (1 - (Math.min(Math.max(v, Y_MIN), Y_MAX) - Y_MIN) / (Y_MAX - Y_MIN)) * (HEIGHT - PAD.top - PAD.bottom);
+  const x = (t: number) => (tMax === tMin ? (PAD.left + right) / 2 : PAD.left + ((t - tMin) / (tMax - tMin)) * (right - PAD.left));
+  const y = (v: number) => PAD.top + (1 - (Math.min(Math.max(v, Y_MIN), Y_MAX) - Y_MIN) / (Y_MAX - Y_MIN)) * (bottom - PAD.top);
 
   const points = observations.map((o, i) => ({ o, px: x(times[i]), py: y(o.ndvi_mean) }));
-  const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.px.toFixed(1)},${p.py.toFixed(1)}`).join(" ");
+  const line = points.map((p) => `${p.px.toFixed(1)},${p.py.toFixed(1)}`).join(" ");
+  const first = points[0];
+  const last = points[points.length - 1];
+  const area = `M${first.px.toFixed(1)} ${bottom} L${line.replaceAll(" ", " L")} L${last.px.toFixed(1)} ${bottom} Z`;
+  const selected = points.find((p) => p.o.id === selectedId) ?? null;
+
+  // The tooltip sits above the selected point, or below it when there is no room above.
+  let tooltip: { x: number; y: number } | null = null;
+  if (selected) {
+    const tx = Math.min(Math.max(selected.px - TOOLTIP.width / 2, PAD.left), right - TOOLTIP.width);
+    const above = selected.py - 14 - TOOLTIP.height;
+    tooltip = { x: tx, y: above >= 0 ? above : selected.py + 14 };
+  }
+
+  const ariaLabel =
+    `Oʻrtacha NDVI: ${formatDate(first.o.observed_on)} dan ${formatDate(last.o.observed_on)} gacha ` +
+    `${observations.length} ta kuzatuv.` +
+    (selected ? ` Tanlangan: ${label(selected.o)}` : "");
 
   return (
-    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="chart" role="img" aria-label="NDVI grafigi">
+    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="chart" role="img" aria-label={ariaLabel}>
       {Y_TICKS.map((tick) => (
-        <g key={tick}>
-          <line x1={PAD.left} x2={WIDTH - PAD.right} y1={y(tick)} y2={y(tick)} className="grid" />
-          <text x={PAD.left - 6} y={y(tick) + 3} textAnchor="end" className="tick">
-            {tick.toFixed(2)}
+        <line key={tick} x1={PAD.left} x2={right} y1={y(tick)} y2={y(tick)} className="grid" />
+      ))}
+      <line x1={PAD.left} x2={right} y1={y(0)} y2={y(0)} className="axis" />
+      {[0, ...Y_TICKS].map((tick) => (
+        <text key={tick} x={PAD.left - 6} y={y(tick) + 3.5} textAnchor="end" className="tick">
+          {tick === 0 || tick === 1 ? tick : tick.toFixed(2).replace(/0$/, "")}
+        </text>
+      ))}
+
+      <path d={area} className="area" />
+      <polyline points={line} className="line" />
+
+      {selected && <line x1={selected.px} x2={selected.px} y1={selected.py + 7} y2={bottom} className="guide" />}
+
+      {points.map(({ o, px, py }) =>
+        o.id === selectedId ? null : (
+          <g key={o.id} className="point" onClick={() => onSelect(o)}>
+            <circle cx={px} cy={py} r={10} className="hit" />
+            <circle cx={px} cy={py} r={4} className="dot" />
+            <title>{label(o)}</title>
+          </g>
+        ),
+      )}
+
+      {selected && (
+        <g>
+          <circle cx={selected.px} cy={selected.py} r={12} fill={ndviColor(selected.o.ndvi_mean)} fillOpacity={0.18} />
+          <circle
+            cx={selected.px}
+            cy={selected.py}
+            r={7.5}
+            fill={ndviColor(selected.o.ndvi_mean)}
+            className="selected-dot"
+          />
+        </g>
+      )}
+
+      {selected && tooltip && (
+        <g className="tooltip">
+          <rect x={tooltip.x} y={tooltip.y} width={TOOLTIP.width} height={TOOLTIP.height} rx={6} />
+          <text x={tooltip.x + TOOLTIP.width / 2} y={tooltip.y + 18.5} textAnchor="middle">
+            {label(selected.o)}
           </text>
         </g>
-      ))}
-      <path d={path} className="line" />
-      {points.map(({ o, px, py }) => (
-        <circle
-          key={o.id}
-          cx={px}
-          cy={py}
-          r={o.id === selectedId ? 5 : 3.5}
-          className={o.id === selectedId ? "point selected" : "point"}
-          onClick={() => onSelect(o)}
-        >
-          <title>{`${formatDate(o.observed_on)}: NDVI ${o.ndvi_mean.toFixed(2)}`}</title>
-        </circle>
-      ))}
-      <text x={PAD.left} y={HEIGHT - 6} className="tick">
-        {formatDate(observations[0].observed_on)}
+      )}
+
+      <text x={PAD.left} y={HEIGHT - 12} className="tick">
+        {formatDate(first.o.observed_on)}
       </text>
-      <text x={WIDTH - PAD.right} y={HEIGHT - 6} textAnchor="end" className="tick">
-        {formatDate(observations[observations.length - 1].observed_on)}
+      <text x={right} y={HEIGHT - 12} textAnchor="end" className="tick">
+        {formatDate(last.o.observed_on)}
       </text>
     </svg>
   );

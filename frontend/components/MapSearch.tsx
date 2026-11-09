@@ -2,6 +2,7 @@
 
 import { type FormEvent, useState } from "react";
 
+import { AlertIcon, PinIcon, SearchIcon } from "@/components/icons";
 import type { Position } from "@/lib/api";
 
 // Where the map moves after a search. A bbox zooms to the whole place, a point zooms in close.
@@ -96,26 +97,43 @@ export default function MapSearch({ onSelect }: Props) {
   };
 
   return (
-    <div className="map-search">
-      <form onSubmit={submit}>
+    <div className="map-search" role="search">
+      <form onSubmit={submit} className="map-search-bar">
+        <SearchIcon size={18} className="map-search-icon" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Joy nomi yoki 41.30, 69.21"
-          aria-label="Xaritadan qidirish"
+          aria-label="Joy qidirish"
         />
-        <button type="submit" disabled={loading || !query.trim()}>
+        <button
+          type="submit"
+          className="btn btn-primary btn-sm"
+          disabled={loading || !query.trim()}
+          aria-label={loading ? "Qidirilmoqda" : undefined}
+        >
           {loading ? "…" : "Qidirish"}
         </button>
       </form>
-      {error && <p className="error">{error}</p>}
-      {results && results.length === 0 && <p className="muted">Hech narsa topilmadi.</p>}
+      {error && (
+        <div className="map-search-panel map-search-message error-text" role="alert">
+          <AlertIcon size={16} />
+          <span>{error}</span>
+        </div>
+      )}
+      {results && results.length === 0 && (
+        <div className="map-search-panel map-search-message" role="status">
+          <SearchIcon size={16} />
+          <span>Hech narsa topilmadi.</span>
+        </div>
+      )}
       {results && results.length > 0 && (
-        <ul className="search-results">
+        <ul className="map-search-panel search-results" aria-label="Qidiruv natijalari">
           {results.map((result) => (
             <li key={result.label}>
-              <button type="button" className="link" onClick={() => choose(result)}>
-                {result.label}
+              <button type="button" onClick={() => choose(result)}>
+                <PinIcon size={16} />
+                <span>{result.label}</span>
               </button>
             </li>
           ))}

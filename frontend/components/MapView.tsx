@@ -13,6 +13,7 @@ import {
 } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 
+import { MinusIcon, PlusIcon } from "@/components/icons";
 import type { SearchTarget } from "@/components/MapSearch";
 import type { FieldFeature, ObservationImage, Position } from "@/lib/api";
 
@@ -87,9 +88,12 @@ function draftData(points: Position[]): GeoJSON.FeatureCollection {
     features.push({ type: "Feature", geometry: { type: "Polygon", coordinates: [ring] }, properties: {} });
   }
   if (points.length >= 2) {
-    // Show the closing edge back to the first point as soon as there are 3 points.
-    const line = points.length >= 3 ? [...points, points[0]] : points;
-    features.push({ type: "Feature", geometry: { type: "LineString", coordinates: line }, properties: {} });
+    features.push({ type: "Feature", geometry: { type: "LineString", coordinates: points }, properties: { closing: false } });
+  }
+  if (points.length >= 3) {
+    // The closing edge back to the first point is dashed: it is not drawn by the user yet.
+    const closing = [points[points.length - 1], points[0]];
+    features.push({ type: "Feature", geometry: { type: "LineString", coordinates: closing }, properties: { closing: true } });
   }
   points.forEach((point, index) => {
     features.push({
@@ -133,16 +137,29 @@ export default function MapView(props: Props) {
         source: "fields",
         paint: {
           "fill-color": ["case", ["get", "selected"], "#2563eb", "#f59e0b"],
-          "fill-opacity": 0.12,
+          "fill-opacity": ["case", ["get", "selected"], 0.16, 0.18],
+        },
+      });
+      // A wide casing under each outline keeps it visible on satellite imagery.
+      map.addLayer({
+        id: "fields-casing",
+        type: "line",
+        source: "fields",
+        layout: { "line-join": "round" },
+        paint: {
+          "line-color": ["case", ["get", "selected"], "#ffffff", "#141413"],
+          "line-opacity": ["case", ["get", "selected"], 1, 0.6],
+          "line-width": ["case", ["get", "selected"], 8, 5],
         },
       });
       map.addLayer({
         id: "fields-line",
         type: "line",
         source: "fields",
+        layout: { "line-join": "round" },
         paint: {
           "line-color": ["case", ["get", "selected"], "#2563eb", "#f59e0b"],
-          "line-width": ["case", ["get", "selected"], 3, 2],
+          "line-width": ["case", ["get", "selected"], 4, 2],
         },
       });
       // Draft polygon while drawing. Bright yellow with a dark outline stays visible on satellite imagery.
@@ -160,15 +177,26 @@ export default function MapView(props: Props) {
         source: "draft",
         filter: ["==", ["geometry-type"], "LineString"],
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#111827", "line-width": 7, "line-opacity": 0.7 },
+        paint: {
+          "line-color": "#1c1917",
+          "line-width": ["case", ["get", "closing"], 4.5, 6.5],
+          "line-opacity": ["case", ["get", "closing"], 0.7, 1],
+        },
       });
       map.addLayer({
         id: "draft-line",
         type: "line",
         source: "draft",
-        filter: ["==", ["geometry-type"], "LineString"],
+        filter: ["all", ["==", ["geometry-type"], "LineString"], ["!", ["get", "closing"]]],
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#facc15", "line-width": 3.5 },
+        paint: { "line-color": "#facc15", "line-width": 3 },
+      });
+      map.addLayer({
+        id: "draft-closing",
+        type: "line",
+        source: "draft",
+        filter: ["all", ["==", ["geometry-type"], "LineString"], ["get", "closing"]],
+        paint: { "line-color": "#facc15", "line-width": 2, "line-dasharray": [3.5, 3.5] },
       });
       map.addLayer({
         id: "draft-points",
@@ -177,10 +205,10 @@ export default function MapView(props: Props) {
         filter: ["==", ["geometry-type"], "Point"],
         paint: {
           // The first point is bigger, so the user sees where the polygon closes.
-          "circle-radius": ["case", ["get", "first"], 9, 7],
+          "circle-radius": ["case", ["get", "first"], 10, 6.5],
           "circle-color": ["case", ["get", "first"], "#22c55e", "#facc15"],
-          "circle-stroke-color": "#111827",
-          "circle-stroke-width": 2.5,
+          "circle-stroke-color": "#1c1917",
+          "circle-stroke-width": ["case", ["get", "first"], 3, 2.5],
         },
       });
       setLoaded(true);
@@ -238,6 +266,8 @@ export default function MapView(props: Props) {
     if (!map || !loaded) return;
     if (map.getLayer("ndvi")) map.removeLayer("ndvi");
     if (map.getSource("ndvi")) map.removeSource("ndvi");
+    // The blue fill of the selected field would tint the NDVI colors, so it is hidden under an overlay.
+    map.setPaintProperty("fields-fill", "fill-opacity", ["case", ["get", "selected"], overlay ? 0 : 0.16, 0.18]);
     if (!overlay) return;
     const [west, south, east, north] = overlay.bounds;
     map.addSource("ndvi", {
@@ -251,7 +281,10 @@ export default function MapView(props: Props) {
       ],
     });
     // Put the NDVI image under the field outlines.
-    map.addLayer({ id: "ndvi", type: "raster", source: "ndvi", paint: { "raster-resampling": "nearest" } }, "fields-line");
+    map.addLayer(
+      { id: "ndvi", type: "raster", source: "ndvi", paint: { "raster-resampling": "nearest", "raster-opacity": 0.92 } },
+      "fields-casing",
+    );
   }, [loaded, overlay]);
 
   useEffect(() => {
@@ -274,5 +307,17 @@ export default function MapView(props: Props) {
     markerRef.current = new Marker({ color: "#dc2626" }).setLngLat(searchTarget.center).addTo(map);
   }, [loaded, searchTarget]);
 
-  return <div ref={containerRef} className="map" />;
+  return (
+    <>
+      <div ref={containerRef} className="map" />
+      <div className="map-zoom">
+        <button type="button" aria-label="Yaqinlashtirish" onClick={() => mapRef.current?.zoomIn()}>
+          <PlusIcon size={18} strokeWidth={2} />
+        </button>
+        <button type="button" aria-label="Uzoqlashtirish" onClick={() => mapRef.current?.zoomOut()}>
+          <MinusIcon size={18} />
+        </button>
+      </div>
+    </>
+  );
 }
