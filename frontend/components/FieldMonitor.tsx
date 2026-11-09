@@ -52,6 +52,10 @@ const RAMP = `linear-gradient(to right, ${NDVI_STOPS.map(
 const POLL_INTERVAL_MS = 10_000;
 const POLL_COUNT = 18;
 
+// While the user links Telegram: check the account every 3 s, for as long as the code lives (10 min).
+const TELEGRAM_CHECK_MS = 3_000;
+const TELEGRAM_CODE_MS = 10 * 60_000;
+
 export default function FieldMonitor() {
   const [fields, setFields] = useState<FieldFeature[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -70,8 +74,9 @@ export default function FieldMonitor() {
   const closeReport = useCallback(() => setReportOpen(false), []);
 
   const [user, setUser] = useState<User | null>(null);
-  // The "Telegramda ulash" button shows only when the bot runs.
+  // The "Telegramni ulash" button shows only when the bot runs.
   const [telegramAvailable, setTelegramAvailable] = useState(false);
+  const [waitingForTelegram, setWaitingForTelegram] = useState(false);
   // The link, when the browser blocked the new tab.
   const [blockedLinkUrl, setBlockedLinkUrl] = useState<string | null>(null);
 
@@ -127,6 +132,32 @@ export default function FieldMonitor() {
       .catch(() => undefined);
   }, []);
 
+  // After "Telegramni ulash": the user taps "Start" in Telegram, then comes back. Check the account
+  // when the tab gets focus and every few seconds, until the link shows or the code expires.
+  useEffect(() => {
+    if (!waitingForTelegram) return;
+    const refresh = () =>
+      api
+        .me()
+        .then((me) => {
+          setUser(me);
+          if (me.telegram_linked) {
+            setWaitingForTelegram(false);
+            setBlockedLinkUrl(null);
+            setMessage("Telegram ulandi. Barcha maydonlaringiz boʻyicha ogohlantirishlar unga keladi.");
+          }
+        })
+        .catch(() => undefined);
+    window.addEventListener("focus", refresh);
+    const timer = setInterval(refresh, TELEGRAM_CHECK_MS);
+    const stop = setTimeout(() => setWaitingForTelegram(false), TELEGRAM_CODE_MS);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      clearInterval(timer);
+      clearTimeout(stop);
+    };
+  }, [waitingForTelegram]);
+
   // When the field changes: load its history and show the newest NDVI image.
   useEffect(() => {
     stopPolling();
@@ -135,7 +166,6 @@ export default function FieldMonitor() {
     setOverlay(null);
     setConfirmingDelete(false);
     setReportOpen(false);
-    setBlockedLinkUrl(null);
     if (selectedId === null) return;
     run(async () => {
       const observations = await loadHistory(selectedId);
@@ -197,23 +227,34 @@ export default function FieldMonitor() {
     });
   };
 
-  // The API makes a one-time t.me link for this field. The bot then subscribes the chat
-  // and binds the Telegram account to this user.
+  // The API makes a one-time t.me link. The bot binds that Telegram account to this user,
+  // and NDVI alerts for all fields go there.
   const openTelegramLink = async () => {
-    if (!selectedField) return;
     setBlockedLinkUrl(null);
     // Open the tab now, inside the click. A tab opened after an await is often blocked as a popup.
     const tab = window.open("", "_blank");
     try {
-      const url = await api.telegramLink(selectedField.id);
+      const url = await api.telegramLink();
       if (tab) {
         tab.opener = null;
         tab.location.href = url;
       } else {
         setBlockedLinkUrl(url);
       }
+      setWaitingForTelegram(true);
     } catch (err) {
       tab?.close();
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const unlinkTelegram = async () => {
+    setError(null);
+    try {
+      await api.telegramUnlink();
+      setUser(await api.me());
+      setMessage("Telegram uzildi. Ogohlantirishlar endi yuborilmaydi.");
+    } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   };
@@ -270,19 +311,51 @@ export default function FieldMonitor() {
         </header>
 
         {user && (
-          <div className="account">
-            <span className="account-avatar" aria-hidden="true">
-              {user.display_name.charAt(0).toUpperCase()}
-            </span>
-            <div className="account-name">
-              <span>{user.display_name}</span>
-              <span>{user.telegram_linked ? "Telegram ulangan" : "Login va parol"}</span>
+          <section className="account" aria-label="Hisob">
+            <div className="account-row">
+              <span className="account-avatar" aria-hidden="true">
+                {user.display_name.charAt(0).toUpperCase()}
+              </span>
+              <div className="account-name">
+                <span>{user.display_name}</span>
+                <span>{user.has_password ? "Login va parol" : "Telegram orqali"}</span>
+              </div>
+              <button type="button" className="account-logout" onClick={logout}>
+                <LogoutIcon size={16} />
+                Chiqish
+              </button>
             </div>
-            <button type="button" className="account-logout" onClick={logout}>
-              <LogoutIcon size={16} />
-              Chiqish
-            </button>
-          </div>
+
+            {user.telegram_linked ? (
+              <div className="account-telegram">
+                <SendIcon size={16} className="account-telegram-icon" />
+                <span>
+                  Ogohlantirishlar:{" "}
+                  <strong>{user.telegram_username ? `@${user.telegram_username}` : "Telegram"}</strong>
+                </span>
+                {user.has_password && (
+                  <button type="button" className="account-text-btn" onClick={unlinkTelegram}>
+                    Uzish
+                  </button>
+                )}
+              </div>
+            ) : (
+              telegramAvailable && (
+                <div className="account-telegram account-telegram-off">
+                  <p>Barcha maydonlaringiz boʻyicha NDVI ogohlantirishlari Telegramga kelishi uchun ulang.</p>
+                  <button type="button" className="btn btn-telegram" onClick={openTelegramLink}>
+                    {waitingForTelegram ? <SpinnerIcon size={16} className="spin" /> : <SendIcon size={16} />}
+                    {waitingForTelegram ? "Telegramda «Start» ni bosing…" : "Telegramni ulash"}
+                  </button>
+                  {blockedLinkUrl && (
+                    <a className="telegram-fallback" href={blockedLinkUrl} target="_blank" rel="noopener noreferrer">
+                      Telegram ochilmadimi? Shu yerni bosing.
+                    </a>
+                  )}
+                </div>
+              )
+            )}
+          </section>
         )}
 
         <section className="basemap" aria-labelledby="bm-label">
@@ -408,23 +481,6 @@ export default function FieldMonitor() {
                   {selectedField.properties.name}
                 </h2>
               </div>
-              {telegramAvailable && (
-                <div className="telegram">
-                  <p>
-                    <SendIcon size={16} className="accent-icon" />
-                    <span>NDVI keskin tushsa, Telegram orqali ogohlantirish oling.</span>
-                  </p>
-                  <button type="button" className="btn btn-telegram" onClick={openTelegramLink}>
-                    <SendIcon size={16} />
-                    Telegramda ulash
-                  </button>
-                  {blockedLinkUrl && (
-                    <a className="telegram-fallback" href={blockedLinkUrl} target="_blank" rel="noopener noreferrer">
-                      Telegram ochilmadimi? Shu yerni bosing.
-                    </a>
-                  )}
-                </div>
-              )}
               <div className="stack">
                 <button type="button" className="btn btn-primary" onClick={computeNdvi} disabled={busy}>
                   {computing ? <SpinnerIcon size={16} className="spin" /> : <ActivityIcon size={16} />}

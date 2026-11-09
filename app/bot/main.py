@@ -9,15 +9,7 @@ from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import Message
 
 from app.bot import messages
-from app.bot.subscriptions import (
-    confirm_login,
-    link_chat,
-    link_with_code,
-    list_chat_fields,
-    parse_field_id,
-    parse_start_payload,
-    unlink_chat,
-)
+from app.bot.subscriptions import confirm_login, link_with_code, list_user_fields, parse_start_payload
 from app.config import get_settings
 from app.db import SessionLocal
 from app.services.auth import TelegramIdentity
@@ -45,7 +37,7 @@ def _identity(message: Message) -> TelegramIdentity | None:
 
 @router.message(CommandStart())
 async def handle_start(message: Message, command: CommandObject) -> None:
-    # The frontend opens the bot with "login_<code>" (sign in) or "link_<code>" (field alerts).
+    # The website opens the bot with "login_<code>" (sign in) or "link_<code>" (bind Telegram to the account).
     payload = parse_start_payload(command.args)
     identity = _identity(message)
     if payload is None or identity is None:
@@ -54,32 +46,17 @@ async def handle_start(message: Message, command: CommandObject) -> None:
     if payload.kind == "login":
         reply = await _run_db(confirm_login, payload.code, identity)
     else:
-        reply = await _run_db(link_with_code, payload.code, identity, message.chat.id)
+        reply = await _run_db(link_with_code, payload.code, identity)
     await message.answer(reply)
-
-
-@router.message(Command("link"))
-async def handle_link(message: Message, command: CommandObject) -> None:
-    field_id = parse_field_id(command.args)
-    identity = _identity(message)
-    if field_id is None or identity is None:
-        await message.answer(messages.LINK_USAGE)
-        return
-    await message.answer(await _run_db(link_chat, message.chat.id, field_id, identity.id))
-
-
-@router.message(Command("unlink"))
-async def handle_unlink(message: Message, command: CommandObject) -> None:
-    field_id = parse_field_id(command.args)
-    if field_id is None:
-        await message.answer(messages.UNLINK_USAGE)
-        return
-    await message.answer(await _run_db(unlink_chat, message.chat.id, field_id))
 
 
 @router.message(Command("fields"))
 async def handle_fields(message: Message) -> None:
-    await message.answer(await _run_db(list_chat_fields, message.chat.id))
+    identity = _identity(message)
+    if identity is None:
+        await message.answer(messages.NO_FIELDS)
+        return
+    await message.answer(await _run_db(list_user_fields, identity.id))
 
 
 async def run() -> None:

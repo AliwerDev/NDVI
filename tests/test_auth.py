@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.api import telegram
 from app.bot import messages
-from app.bot.subscriptions import confirm_login, link_with_code, subscribed_chat_ids
+from app.bot.subscriptions import confirm_login, link_with_code
 from app.models import AuthSession, Field, TelegramToken, User
 from app.services.auth import (
     TelegramIdentity,
@@ -27,7 +27,6 @@ SQUARE = {
     "coordinates": [[[69.20, 41.30], [69.21, 41.30], [69.21, 41.31], [69.20, 41.31], [69.20, 41.30]]],
 }
 TELEGRAM = TelegramIdentity(id=777000222, username="dehqon", full_name="Ali Valiyev")
-CHAT = 987654321
 
 
 def _register(client: TestClient, username: str = "Ali_01", password: str = "parol-12345") -> dict:
@@ -222,27 +221,53 @@ def test_telegram_start_without_bot(anonymous_client: TestClient, monkeypatch: p
     assert anonymous_client.post("/auth/telegram/start").status_code == 503
 
 
-# --- Telegram link for field alerts ---
+# --- One Telegram account per user for the alerts of all fields ---
 
 
-def test_link_code_subscribes_chat_and_binds_telegram(db_session: Session) -> None:
-    owner = User(username="parolli", password_hash=hash_password("parol-12345"))
-    db_session.add(owner)
+def _password_user(db_session: Session, username: str = "parolli") -> User:
+    user = User(username=username, password_hash=hash_password("parol-12345"))
+    db_session.add(user)
     db_session.commit()
-    field = Field(owner_id=owner.id, name="Gʻoʻza", geometry=from_shape(box(69.2, 41.3, 69.21, 41.31), srid=4326))
-    db_session.add(field)
-    db_session.commit()
+    return user
 
-    code = create_link_code(db_session, owner, field)
-    assert link_with_code(db_session, code, TELEGRAM, CHAT) == messages.linked("Gʻoʻza")
-    assert subscribed_chat_ids(db_session, field.id) == [CHAT]
+
+def test_link_code_binds_telegram_to_user(db_session: Session) -> None:
+    owner = _password_user(db_session)
+
+    code = create_link_code(db_session, owner)
+    assert link_with_code(db_session, code, TELEGRAM) == messages.LINKED
     assert owner.telegram_id == TELEGRAM.id
+    assert owner.telegram_username == "dehqon"
     # The code works once.
-    assert link_with_code(db_session, code, TELEGRAM, CHAT) == messages.LINK_EXPIRED
+    assert link_with_code(db_session, code, TELEGRAM) == messages.LINK_EXPIRED
+    # A new code for the same Telegram account says it is already linked.
+    assert link_with_code(db_session, create_link_code(db_session, owner), TELEGRAM) == messages.ALREADY_LINKED
 
 
-def test_link_endpoint(db_client: TestClient, field: Field, bot_username: str) -> None:
-    response = db_client.post(f"/fields/{field.id}/telegram-link")
+def test_link_refuses_telegram_of_another_user(db_session: Session, user: User) -> None:
+    other = _password_user(db_session)
+    taken = TelegramIdentity(id=user.telegram_id, username="fermer_tg", full_name="Fermer")
+
+    assert link_with_code(db_session, create_link_code(db_session, other), taken) == messages.LINK_TAKEN
+    assert other.telegram_id is None
+
+
+def test_link_and_unlink_endpoints(db_client: TestClient, db_session: Session, bot_username: str) -> None:
+    response = db_client.post("/auth/telegram/link")
     assert response.status_code == 200
     assert response.json()["url"].startswith(f"https://t.me/{bot_username}?start=link_")
-    assert db_client.post("/fields/999999/telegram-link").status_code == 404
+
+    # `user` has a password and Telegram: unlinking is allowed.
+    assert db_client.delete("/auth/telegram").status_code == 204
+    me = db_client.get("/auth/me").json()
+    assert me["telegram_linked"] is False
+    assert me["telegram_username"] is None
+
+
+def test_telegram_only_account_cannot_unlink(anonymous_client: TestClient, db_session: Session) -> None:
+    started = start_telegram_login(db_session)
+    confirm_login(db_session, started.code, TELEGRAM)
+    token = anonymous_client.post("/auth/telegram/poll", json={"poll_token": started.poll_token}).json()["token"]
+
+    assert anonymous_client.delete("/auth/telegram", headers=_auth(token)).status_code == 409
+    assert anonymous_client.get("/auth/me", headers=_auth(token)).json()["has_password"] is False

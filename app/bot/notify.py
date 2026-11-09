@@ -1,4 +1,4 @@
-"""Send pending NDVI drop alerts to the subscribed Telegram chats."""
+"""Send pending NDVI drop alerts to the Telegram account of each field's owner."""
 
 import asyncio
 import logging
@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramAPIError
 from sqlalchemy.orm import Session
 
 from app.bot import messages
-from app.bot.subscriptions import subscribed_chat_ids
+from app.bot.subscriptions import alert_chat_id
 from app.config import get_settings
 from app.models import Field, NdviObservation
 from app.services.alerts import pending_alerts
@@ -35,7 +35,7 @@ async def deliver(token: str, outbox: list[tuple[int, str]]) -> int:
 
 
 def send_pending_alerts(db: Session) -> int:
-    """Send every unsent alert to its field's chats and mark the alerts as sent.
+    """Send every unsent alert to the owner's Telegram and mark the alerts as sent.
 
     Returns the number of messages sent. Without TELEGRAM_BOT_TOKEN nothing is sent and alerts stay pending.
     """
@@ -52,16 +52,17 @@ def send_pending_alerts(db: Session) -> int:
         field = db.get(Field, alert.field_id)
         previous = db.get(NdviObservation, alert.previous_observation_id)
         current = db.get(NdviObservation, alert.observation_id)
-        if field is None or previous is None or current is None:
+        chat_id = alert_chat_id(db, field) if field is not None else None
+        if field is None or previous is None or current is None or chat_id is None:
             continue
         text = messages.ndvi_drop_alert(
             field.name, previous.observed_on, alert.previous_mean, current.observed_on, alert.current_mean, alert.drop
         )
-        outbox.extend((chat_id, text) for chat_id in subscribed_chat_ids(db, alert.field_id))
+        outbox.append((chat_id, text))
 
     sent = asyncio.run(deliver(token, outbox)) if outbox else 0
 
-    # Alerts without subscribers are also marked, so that a later subscriber does not get old alerts.
+    # Alerts of owners without Telegram are also marked, so that linking Telegram later does not send old alerts.
     now = datetime.now(UTC)
     for alert in alerts:
         alert.sent_at = now

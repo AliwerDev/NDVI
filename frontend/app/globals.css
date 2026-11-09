@@ -628,28 +628,6 @@ p {
   gap: 2px;
 }
 
-.telegram {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: var(--bg);
-  border-radius: 10px;
-}
-
-.telegram p {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-2);
-}
-
-.telegram p svg {
-  margin-top: 1px;
-}
-
 .btn-telegram {
   background: #2aabee;
   color: #ffffff;
@@ -671,16 +649,73 @@ p {
   color: var(--accent);
 }
 
-/* Signed-in user row in the sidebar */
+/* Signed-in user card in the sidebar: the user and their one Telegram account for alerts */
 
 .account {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.account-row {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 8px 8px 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+}
+
+.account-telegram {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px 10px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.account-telegram strong {
+  color: var(--text);
+}
+
+.account-telegram > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-telegram-icon {
+  flex: none;
+  color: #1e96d4;
+}
+
+.account-telegram-off {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px;
+  line-height: 1.45;
+}
+
+.account-text-btn {
+  flex: none;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.account-text-btn:hover {
+  background: var(--sunken);
+  color: var(--danger);
 }
 
 .account-avatar {

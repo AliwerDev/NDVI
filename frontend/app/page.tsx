@@ -58,7 +58,7 @@ const STEPS = [
   },
   {
     title: "Telegram xabar beradi",
-    text: "Oʻrtacha NDVI oldingi kuzatuvdan 0.15 yoki koʻproq tushsa, bot ogohlantiradi. Ulash uchun «Telegramda ulash» tugmasini bosing.",
+    text: "Oʻrtacha NDVI oldingi kuzatuvdan 0.15 yoki koʻproq tushsa, bot ogohlantiradi. Telegram orqali kirsangiz, xabarlar oʻsha Telegramga keladi.",
   },
 ];
 

@@ -41,7 +41,10 @@ export type User = {
   id: number;
   username: string | null;
   display_name: string;
+  has_password: boolean;
+  // NDVI alerts for all fields of the user go to this Telegram account.
   telegram_linked: boolean;
+  telegram_username: string | null;
 };
 
 export type AuthResult = { token: string; user: User };
@@ -111,9 +114,10 @@ export const api = {
   // The bot username. null when the bot is off or Telegram is unreachable.
   telegramBot: () => request<{ username: string | null }>("/telegram/bot").then((info) => info.username),
 
-  // A one-time t.me link. The bot subscribes the chat to this field's alerts.
-  telegramLink: (fieldId: number) =>
-    request<{ url: string }>(`/fields/${fieldId}/telegram-link`, { method: "POST" }).then((link) => link.url),
+  // A one-time t.me link. The bot binds that Telegram account to the user: alerts for all fields go there.
+  telegramLink: () => request<{ url: string }>("/auth/telegram/link", { method: "POST" }).then((link) => link.url),
+
+  telegramUnlink: () => request<void>("/auth/telegram", { method: "DELETE" }),
 
   register: (username: string, password: string) =>
     request<AuthResult>("/auth/register", { method: "POST", body: JSON.stringify({ username, password }) }),

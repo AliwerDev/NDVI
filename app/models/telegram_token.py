@@ -16,7 +16,7 @@ class TelegramToken(Base):
 
     login: the browser waits with poll_token. The bot sets user_id and confirmed_at.
            The browser then gets a session once and consumed_at is set.
-    link:  user_id and field_id are set at creation. The bot subscribes the chat and sets confirmed_at.
+    link:  user_id is set at creation. The bot binds the Telegram account to that user and sets confirmed_at.
     """
 
     __tablename__ = "telegram_tokens"
@@ -28,7 +28,6 @@ class TelegramToken(Base):
     # The poll token stays in the browser. Only it can turn a confirmed login into a session.
     poll_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    field_id: Mapped[int | None] = mapped_column(ForeignKey("fields.id", ondelete="CASCADE"))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

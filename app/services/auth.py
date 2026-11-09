@@ -6,13 +6,14 @@ import hmac
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import Enum
 from functools import cache
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models import AuthSession, Field, TelegramSubscription, TelegramToken, User
+from app.models import AuthSession, Field, TelegramToken, User
 from app.models.telegram_token import KIND_LINK, KIND_LOGIN
 
 PASSWORD_MIN_LENGTH = 8
@@ -214,53 +215,53 @@ def poll_telegram_login(db: Session, poll_token: str) -> TelegramLoginPoll:
     return TelegramLoginPoll(status="confirmed", user=user, session_token=create_session(db, user))
 
 
-# --- Telegram link: a signed-in user subscribes a Telegram chat to the alerts of one field ---
+# --- Telegram link: a signed-in user binds one Telegram account. Alerts for all their fields go there. ---
 
 
-def create_link_code(db: Session, user: User, field: Field) -> str:
+def create_link_code(db: Session, user: User) -> str:
     code = secrets.token_urlsafe(24)
-    db.add(
-        TelegramToken(
-            kind=KIND_LINK, code_hash=_sha256(code), user_id=user.id, field_id=field.id, expires_at=_code_expiry()
-        )
-    )
+    db.add(TelegramToken(kind=KIND_LINK, code_hash=_sha256(code), user_id=user.id, expires_at=_code_expiry()))
     db.commit()
     return code
 
 
-@dataclass(frozen=True)
-class LinkResult:
-    field: Field
-    already_linked: bool
+class LinkResult(Enum):
+    LINKED = "linked"
+    ALREADY_LINKED = "already_linked"
+    # The Telegram account belongs to another user. One Telegram account opens only one account.
+    TAKEN = "taken"
+    EXPIRED = "expired"
 
 
-def use_link_code(db: Session, code: str, identity: TelegramIdentity, chat_id: int) -> LinkResult | None:
-    """Called by the bot. Subscribes the chat to the field and binds the Telegram account to the user.
+def use_link_code(db: Session, code: str, identity: TelegramIdentity) -> LinkResult:
+    """Called by the bot. Binds the Telegram account to the user of the code.
 
-    Returns None if the code is unknown, expired or already used.
+    A user who had another Telegram account gets the new one: the user clicked the link while signed in.
     """
     token = _open_token(db, KIND_LINK, code)
-    if token is None or token.user_id is None or token.field_id is None:
-        return None
-    user = db.get(User, token.user_id)
-    field = db.get(Field, token.field_id)
-    if user is None or field is None or field.owner_id != user.id:
-        return None
+    user = db.get(User, token.user_id) if token is not None and token.user_id is not None else None
+    if token is None or user is None:
+        return LinkResult.EXPIRED
 
-    # Bind the Telegram account, so "Telegram orqali kirish" opens the same account later.
-    # A Telegram account that already belongs to another user stays there.
-    if user.telegram_id is None and db.scalar(select(User).where(User.telegram_id == identity.id)) is None:
-        user.telegram_id = identity.id
-        user.telegram_username = identity.username
-        user.display_name = user.display_name or identity.full_name
+    owner = db.scalar(select(User).where(User.telegram_id == identity.id))
+    if owner is not None and owner.id != user.id:
+        return LinkResult.TAKEN
 
     token.confirmed_at = _now()
-    existing = db.scalar(
-        select(TelegramSubscription).where(
-            TelegramSubscription.chat_id == chat_id, TelegramSubscription.field_id == field.id
-        )
-    )
-    if existing is None:
-        db.add(TelegramSubscription(chat_id=chat_id, field_id=field.id))
+    result = LinkResult.ALREADY_LINKED if owner is not None else LinkResult.LINKED
+    user.telegram_id = identity.id
+    user.telegram_username = identity.username
+    user.display_name = user.display_name or identity.full_name
     db.commit()
-    return LinkResult(field=field, already_linked=existing is not None)
+    return result
+
+
+def unlink_telegram(db: Session, user: User) -> bool:
+    """Remove the Telegram account from the user. Returns False for a Telegram-only account:
+    without Telegram it would have no way to sign in."""
+    if user.password_hash is None:
+        return False
+    user.telegram_id = None
+    user.telegram_username = None
+    db.commit()
+    return True

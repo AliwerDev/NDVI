@@ -6,45 +6,24 @@ WELCOME = (
     "Assalomu alaykum! 🌱\n\n"
     "Men maydonlaringizni Sentinel-2 sunʼiy yoʻldosh suratlari orqali kuzataman. "
     "NDVI (oʻsimlik holati koʻrsatkichi) keskin tushsa, sizga xabar yuboraman.\n\n"
-    "Buyruqlar:\n"
-    "/link <raqam> — maydonni ulash (masalan: /link 3)\n"
-    "/unlink <raqam> — maydonni uzish\n"
-    "/fields — ulangan maydonlar va oxirgi NDVI"
+    "Saytga Telegram orqali kiring yoki saytda «Telegramni ulash» tugmasini bosing. "
+    "Shundan keyin barcha maydonlaringiz boʻyicha ogohlantirishlar shu chatga keladi.\n\n"
+    "/fields — maydonlaringiz va oxirgi NDVI"
 )
 
-LINK_USAGE = "Maydon raqamini yozing. Masalan: /link 3"
-UNLINK_USAGE = "Maydon raqamini yozing. Masalan: /unlink 3"
-NO_FIELDS = "Sizda ulangan maydon yoʻq. Maydonni ulash uchun: /link <raqam>"
+NO_FIELDS = "Bu Telegram hisobiga ulangan maydon yoʻq. Saytga Telegram orqali kiring yoki «Telegramni ulash» tugmasini bosing."
 
-
-LOGIN_CONFIRMED = "✅ Saytga kirish tasdiqlandi. Brauzerga qayting."
+LOGIN_CONFIRMED = "✅ Saytga kirish tasdiqlandi. Brauzerga qayting.\n\nNDVI ogohlantirishlari shu chatga keladi."
 LOGIN_EXPIRED = (
     "Bu kirish havolasi eskirgan yoki ishlatilgan. Saytda «Telegram orqali kirish» tugmasini qayta bosing."
 )
-LINK_EXPIRED = "Bu havola eskirgan yoki ishlatilgan. Saytda «Telegramda ulash» tugmasini qayta bosing."
 
-
-def field_not_found(field_id: int) -> str:
-    return (
-        f"{field_id} raqamli maydon topilmadi yoki u sizning Telegram akkauntingizga bogʻlanmagan. "
-        "Saytda maydonni tanlang va «Telegramda ulash» tugmasini bosing."
-    )
-
-
-def linked(field_name: str) -> str:
-    return f"✅ «{field_name}» maydoni ulandi. NDVI keskin tushsa, sizga xabar yuboraman."
-
-
-def already_linked(field_name: str) -> str:
-    return f"«{field_name}» maydoni allaqachon ulangan."
-
-
-def unlinked(field_id: int) -> str:
-    return f"{field_id} raqamli maydon uzildi. Endi bu maydon boʻyicha xabar kelmaydi."
-
-
-def not_linked(field_id: int) -> str:
-    return f"{field_id} raqamli maydon sizga ulanmagan."
+LINKED = "✅ Telegram hisobingizga ulandi. Endi barcha maydonlaringiz boʻyicha NDVI ogohlantirishlari shu chatga keladi."
+ALREADY_LINKED = "Bu Telegram hisobingizga allaqachon ulangan. Ogohlantirishlar shu chatga keladi."
+LINK_TAKEN = (
+    "Bu Telegram boshqa hisobga ulangan. Saytdan oʻsha hisob bilan kiring yoki boshqa Telegram hisobidan foydalaning."
+)
+LINK_EXPIRED = "Bu havola eskirgan yoki ishlatilgan. Saytda «Telegramni ulash» tugmasini qayta bosing."
 
 
 def _format_date(day: date) -> str:

@@ -8,6 +8,7 @@ from app.schemas.auth import (
     AuthResult,
     LoginRequest,
     RegisterRequest,
+    TelegramLinkResponse,
     TelegramLoginStartResponse,
     TelegramPollRequest,
     TelegramPollResponse,
@@ -15,11 +16,13 @@ from app.schemas.auth import (
 )
 from app.services.auth import (
     authenticate,
+    create_link_code,
     create_password_user,
     create_session,
     delete_session,
     poll_telegram_login,
     start_telegram_login,
+    unlink_telegram,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -65,6 +68,24 @@ async def telegram_login_start(db: DbSession) -> TelegramLoginStartResponse:
         poll_token=started.poll_token,
         expires_at=started.expires_at,
     )
+
+
+@router.post("/telegram/link")
+async def telegram_link(user: CurrentUser, db: DbSession) -> TelegramLinkResponse:
+    """Return a one-time t.me link. The bot binds that Telegram account to this user.
+    NDVI alerts for all the user's fields then go to it."""
+    bot = await require_bot_username()
+    return TelegramLinkResponse(url=f"https://t.me/{bot}?start=link_{create_link_code(db, user)}")
+
+
+@router.delete("/telegram", status_code=status.HTTP_204_NO_CONTENT)
+def telegram_unlink(user: CurrentUser, db: DbSession) -> Response:
+    """Remove the Telegram account. 409 for a Telegram-only account: it would lose its only way to sign in."""
+    if not unlink_telegram(db, user):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Telegram is the only sign-in method of this account"
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/telegram/poll")
