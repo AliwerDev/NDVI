@@ -1,16 +1,20 @@
 """CRUD endpoints for fields. Input and output use GeoJSON."""
 
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from geoalchemy2 import WKBElement
 from geoalchemy2.shape import from_shape, to_shape
+from pystac_client.exceptions import APIError
 from shapely.geometry import mapping, shape
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.db import get_db
 from app.models import Field
+from app.services.stac import Scene, find_best_scene
 from app.schemas.field import (
     FieldCreate,
     FieldFeature,
@@ -89,3 +93,29 @@ def delete_field(field_id: int, db: DbSession) -> None:
     field = _get_field_or_404(db, field_id)
     db.delete(field)
     db.commit()
+
+
+@router.get("/{field_id}/scenes/best")
+def get_best_scene(field_id: int, start: date, end: date, db: DbSession) -> Scene:
+    """Find the newest Sentinel-2 scene for the field with cloud cover <= MAX_CLOUD_COVER."""
+    if start > end:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="start must be on or before end"
+        )
+    field = _get_field_or_404(db, field_id)
+
+    try:
+        scene = find_best_scene(to_shape(field.geometry), start, end)
+    except APIError as exc:
+        # pystac-client raises APIError for HTTP and connection errors.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"STAC API error: {exc}"
+        ) from exc
+
+    if scene is None:
+        max_cloud = get_settings().max_cloud_cover
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No scene with cloud cover <= {max_cloud}% covers this field between {start} and {end}",
+        )
+    return scene

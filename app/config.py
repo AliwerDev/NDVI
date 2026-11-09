@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     # Separate database for pytest. If it is not set, the database tests are skipped.
     test_database_url: str | None = None
 
+    # Satellite data (Microsoft Planetary Computer STAC API)
+    stac_api_url: str = "https://planetarycomputer.microsoft.com/api/stac/v1"
+    stac_collection: str = "sentinel-2-l2a"
+    # Max scene cloud cover in percent. It is measured for the whole tile, not for the field.
+    max_cloud_cover: float = 20.0
+
 
 @lru_cache
 def get_settings() -> Settings:

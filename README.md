@@ -2,7 +2,7 @@
 
 A field-monitoring service for farmers in Uzbekistan. The service computes NDVI from Sentinel-2 imagery for each field.
 
-Status: Milestone 2 (fields CRUD). The full README comes in Milestone 9.
+Status: Milestone 3 (Sentinel-2 scene search). The full README comes in Milestone 9.
 
 ## Requirements
 
@@ -50,6 +50,7 @@ uv run pytest
 | `GET` | `/fields/{id}` | Returns one field, or 404. |
 | `PATCH` | `/fields/{id}` | Changes `name` and/or `geometry`. |
 | `DELETE` | `/fields/{id}` | Deletes a field (204). |
+| `GET` | `/fields/{id}/scenes/best?start=YYYY-MM-DD&end=YYYY-MM-DD` | Returns the newest Sentinel-2 scene for the field, or 404. |
 
 Request body for `POST /fields`. GeoJSON uses the order `[longitude, latitude]`:
 
@@ -62,3 +63,17 @@ Request body for `POST /fields`. GeoJSON uses the order `[longitude, latitude]`:
   }
 }
 ```
+
+## Satellite data
+
+The service searches Sentinel-2 L2A scenes in the Microsoft Planetary Computer STAC API. No account is necessary.
+
+A scene is a candidate when all of these conditions are true:
+
+- The scene cloud cover is `MAX_CLOUD_COVER` percent or less (default: 20).
+- The scene footprint covers the full field.
+- The scene has the `B04`, `B08`, and `SCL` assets.
+
+From the candidates, the service picks the newest scene.
+
+The cloud cover value applies to the full tile (about 110 × 110 km), not to the field. Milestone 4 checks the clouds over the field with the `SCL` band.
