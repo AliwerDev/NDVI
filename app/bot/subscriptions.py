@@ -1,10 +1,13 @@
 """Database operations behind the bot commands. They return the Uzbek reply text."""
 
+from dataclasses import dataclass
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.bot import messages
-from app.models import Field, TelegramSubscription
+from app.models import Field, TelegramSubscription, User
+from app.services.auth import TelegramIdentity, confirm_telegram_login, use_link_code
 from app.services.history import latest_observation
 
 
@@ -16,17 +19,42 @@ def parse_field_id(args: str | None) -> int | None:
     return int(first) if first.isdigit() else None
 
 
-def parse_start_payload(args: str | None) -> int | None:
-    """Read the field number from a deep link payload: t.me/<bot>?start=link_3 sends "/start link_3"."""
-    if not args or not args.startswith("link_"):
+@dataclass(frozen=True)
+class StartPayload:
+    kind: str  # "login" or "link"
+    code: str
+
+
+def parse_start_payload(args: str | None) -> StartPayload | None:
+    """Read a deep link payload: t.me/<bot>?start=login_<code> sends "/start login_<code>"."""
+    if not args:
         return None
-    return parse_field_id(args.removeprefix("link_"))
+    # The code itself can contain "_", so split only at the first one.
+    kind, separator, code = args.strip().partition("_")
+    if not separator or not code or kind not in ("login", "link"):
+        return None
+    return StartPayload(kind=kind, code=code)
 
 
-def link_chat(db: Session, chat_id: int, field_id: int) -> str:
-    """Subscribe the chat to the field's alerts."""
+def confirm_login(db: Session, code: str, identity: TelegramIdentity) -> str:
+    return messages.LOGIN_CONFIRMED if confirm_telegram_login(db, code, identity) else messages.LOGIN_EXPIRED
+
+
+def link_with_code(db: Session, code: str, identity: TelegramIdentity, chat_id: int) -> str:
+    result = use_link_code(db, code, identity, chat_id)
+    if result is None:
+        return messages.LINK_EXPIRED
+    if result.already_linked:
+        return messages.already_linked(result.field.name)
+    return messages.linked(result.field.name)
+
+
+def link_chat(db: Session, chat_id: int, field_id: int, telegram_user_id: int) -> str:
+    """Subscribe the chat to the field's alerts. Only the owner's Telegram account can do this."""
     field = db.get(Field, field_id)
-    if field is None:
+    owner = db.get(User, field.owner_id) if field is not None and field.owner_id is not None else None
+    if field is None or owner is None or owner.telegram_id != telegram_user_id:
+        # The same answer for "missing" and "not yours", so field numbers of other users stay hidden.
         return messages.field_not_found(field_id)
 
     existing = db.scalar(

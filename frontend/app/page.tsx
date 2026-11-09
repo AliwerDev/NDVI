@@ -135,6 +135,7 @@ export default function HomePage() {
             <a href="#ranglar">Ranglar</a>
             <a href="#qanday">Qanday ishlaydi</a>
             <a href="#savollar">Savollar</a>
+            <Link href="/login">Kirish</Link>
             <OpenMapLink className="home-btn home-btn-primary home-btn-sm" />
           </div>
         </nav>

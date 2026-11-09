@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.bot import messages, notify
 from app.bot.subscriptions import (
+    StartPayload,
     link_chat,
     list_chat_fields,
     parse_field_id,
@@ -19,6 +20,7 @@ from app.config import get_settings
 from app.models import Field
 from app.services.alerts import detect_drop, pending_alerts
 from app.services.history import save_observation
+from tests.conftest import TELEGRAM_USER_ID
 from tests.factories import make_result
 
 CHAT = 123456789
@@ -34,15 +36,23 @@ def test_parse_field_id(args: str | None, expected: int | None) -> None:
 
 @pytest.mark.parametrize(
     ("args", "expected"),
-    [("link_3", 3), ("link_12", 12), (None, None), ("", None), ("link_", None), ("link_abc", None), ("3", None)],
+    [
+        ("login_abc", StartPayload("login", "abc")),
+        ("link_a_b-c", StartPayload("link", "a_b-c")),
+        (None, None),
+        ("", None),
+        ("link_", None),
+        ("other_abc", None),
+        ("3", None),
+    ],
 )
-def test_parse_start_payload(args: str | None, expected: int | None) -> None:
+def test_parse_start_payload(args: str | None, expected: StartPayload | None) -> None:
     assert parse_start_payload(args) == expected
 
 
 def test_link_and_unlink(db_session: Session, field: Field) -> None:
-    assert link_chat(db_session, CHAT, field.id) == messages.linked("Paxta-1")
-    assert link_chat(db_session, CHAT, field.id) == messages.already_linked("Paxta-1")
+    assert link_chat(db_session, CHAT, field.id, TELEGRAM_USER_ID) == messages.linked("Paxta-1")
+    assert link_chat(db_session, CHAT, field.id, TELEGRAM_USER_ID) == messages.already_linked("Paxta-1")
     assert subscribed_chat_ids(db_session, field.id) == [CHAT]
 
     assert unlink_chat(db_session, CHAT, field.id) == messages.unlinked(field.id)
@@ -51,13 +61,18 @@ def test_link_and_unlink(db_session: Session, field: Field) -> None:
 
 
 def test_link_unknown_field(db_session: Session) -> None:
-    assert link_chat(db_session, CHAT, 999999) == messages.field_not_found(999999)
+    assert link_chat(db_session, CHAT, 999999, TELEGRAM_USER_ID) == messages.field_not_found(999999)
+
+
+def test_link_refuses_other_telegram_account(db_session: Session, field: Field) -> None:
+    assert link_chat(db_session, CHAT, field.id, 42) == messages.field_not_found(field.id)
+    assert subscribed_chat_ids(db_session, field.id) == []
 
 
 def test_list_fields_shows_latest_ndvi(db_session: Session, field: Field) -> None:
     assert list_chat_fields(db_session, CHAT) == messages.NO_FIELDS
 
-    link_chat(db_session, CHAT, field.id)
+    link_chat(db_session, CHAT, field.id, TELEGRAM_USER_ID)
     assert "hali NDVI" in list_chat_fields(db_session, CHAT)
 
     save_observation(db_session, field.id, make_result(18, 0.634))
@@ -89,8 +104,8 @@ def _use_token(monkeypatch: pytest.MonkeyPatch, token: str | None) -> None:
 def test_send_pending_alerts_to_subscribers(
     db_session: Session, field: Field, drop_alert: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    link_chat(db_session, CHAT, field.id)
-    link_chat(db_session, CHAT + 1, field.id)
+    link_chat(db_session, CHAT, field.id, TELEGRAM_USER_ID)
+    link_chat(db_session, CHAT + 1, field.id, TELEGRAM_USER_ID)
     outboxes: list[list[tuple[int, str]]] = []
 
     async def fake_deliver(token: str, outbox: list[tuple[int, str]]) -> int:

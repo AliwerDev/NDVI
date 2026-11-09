@@ -17,8 +17,18 @@ UNLINK_USAGE = "Maydon raqamini yozing. Masalan: /unlink 3"
 NO_FIELDS = "Sizda ulangan maydon yoʻq. Maydonni ulash uchun: /link <raqam>"
 
 
+LOGIN_CONFIRMED = "✅ Saytga kirish tasdiqlandi. Brauzerga qayting."
+LOGIN_EXPIRED = (
+    "Bu kirish havolasi eskirgan yoki ishlatilgan. Saytda «Telegram orqali kirish» tugmasini qayta bosing."
+)
+LINK_EXPIRED = "Bu havola eskirgan yoki ishlatilgan. Saytda «Telegramda ulash» tugmasini qayta bosing."
+
+
 def field_not_found(field_id: int) -> str:
-    return f"{field_id} raqamli maydon topilmadi."
+    return (
+        f"{field_id} raqamli maydon topilmadi yoki u sizning Telegram akkauntingizga bogʻlanmagan. "
+        "Saytda maydonni tanlang va «Telegramda ulash» tugmasini bosing."
+    )
 
 
 def linked(field_name: str) -> str:

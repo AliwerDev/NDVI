@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from geoalchemy2 import Geometry, WKBElement
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -15,6 +15,8 @@ class Field(Base):
     __tablename__ = "fields"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Empty only for fields created before accounts existed. The first registered user gets them.
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     geometry: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="POLYGON", srid=4326, spatial_index=True)

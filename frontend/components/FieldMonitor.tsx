@@ -8,12 +8,12 @@ import {
   AlertIcon,
   CheckIcon,
   CloseIcon,
-  CopyIcon,
   CrosshairIcon,
   ExpandIcon,
   FieldsIcon,
   GlobeIcon,
   HistoryIcon,
+  LogoutIcon,
   MapIcon,
   PlusIcon,
   SendIcon,
@@ -27,7 +27,15 @@ import MapView, { type Basemap } from "@/components/MapView";
 import NdviChart from "@/components/NdviChart";
 import NdviReport from "@/components/NdviReport";
 import ObservationStats from "@/components/ObservationStats";
-import { api, type FieldFeature, type Observation, type ObservationImage, type Position } from "@/lib/api";
+import {
+  api,
+  type FieldFeature,
+  type Observation,
+  type ObservationImage,
+  type Position,
+  type User,
+} from "@/lib/api";
+import { clearToken } from "@/lib/auth";
 import { daysAgo, formatDate, isoDate, NDVI_STOPS, seasonStart } from "@/lib/ndvi";
 
 const BASEMAPS: { value: Basemap; label: string; Icon: typeof GlobeIcon }[] = [
@@ -58,12 +66,14 @@ export default function FieldMonitor() {
   const [newName, setNewName] = useState("");
 
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  // With a bot username, one button links the field through t.me/<bot>?start=link_<id>.
-  // Without it, the user types "/link <id>" to the bot.
-  const [telegramBot, setTelegramBot] = useState<string | null>(null);
   const closeReport = useCallback(() => setReportOpen(false), []);
+
+  const [user, setUser] = useState<User | null>(null);
+  // The "Telegramda ulash" button shows only when the bot runs.
+  const [telegramAvailable, setTelegramAvailable] = useState(false);
+  // The link, when the browser blocked the new tab.
+  const [blockedLinkUrl, setBlockedLinkUrl] = useState<string | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [computing, setComputing] = useState(false);
@@ -108,8 +118,13 @@ export default function FieldMonitor() {
   }, [run, loadFields]);
 
   useEffect(() => {
-    // An error here only keeps the /link fallback, so it is not shown to the user.
-    api.telegramBot().then(setTelegramBot).catch(() => undefined);
+    // A 401 here sends the user to the login page (see lib/api.ts).
+    api.me().then(setUser).catch(() => undefined);
+    // An error here only hides the Telegram button, so it is not shown to the user.
+    api
+      .telegramBot()
+      .then((username) => setTelegramAvailable(username !== null))
+      .catch(() => undefined);
   }, []);
 
   // When the field changes: load its history and show the newest NDVI image.
@@ -120,6 +135,7 @@ export default function FieldMonitor() {
     setOverlay(null);
     setConfirmingDelete(false);
     setReportOpen(false);
+    setBlockedLinkUrl(null);
     if (selectedId === null) return;
     run(async () => {
       const observations = await loadHistory(selectedId);
@@ -181,13 +197,33 @@ export default function FieldMonitor() {
     });
   };
 
-  const copyLinkCommand = async (command: string) => {
+  // The API makes a one-time t.me link for this field. The bot then subscribes the chat
+  // and binds the Telegram account to this user.
+  const openTelegramLink = async () => {
+    if (!selectedField) return;
+    setBlockedLinkUrl(null);
+    // Open the tab now, inside the click. A tab opened after an await is often blocked as a popup.
+    const tab = window.open("", "_blank");
     try {
-      await navigator.clipboard.writeText(command);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // The clipboard is not available (for example, over plain HTTP). The command stays visible.
+      const url = await api.telegramLink(selectedField.id);
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = url;
+      } else {
+        setBlockedLinkUrl(url);
+      }
+    } catch (err) {
+      tab?.close();
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await api.logout();
+    } finally {
+      clearToken();
+      window.location.assign("/login");
     }
   };
 
@@ -218,8 +254,6 @@ export default function FieldMonitor() {
     });
   };
 
-  const linkCommand = selectedField ? `/link ${selectedField.id}` : "";
-
   return (
     <div className="layout">
       <aside className="sidebar" aria-label="Boshqaruv paneli">
@@ -234,6 +268,22 @@ export default function FieldMonitor() {
             </div>
           </Link>
         </header>
+
+        {user && (
+          <div className="account">
+            <span className="account-avatar" aria-hidden="true">
+              {user.display_name.charAt(0).toUpperCase()}
+            </span>
+            <div className="account-name">
+              <span>{user.display_name}</span>
+              <span>{user.telegram_linked ? "Telegram ulangan" : "Login va parol"}</span>
+            </div>
+            <button type="button" className="account-logout" onClick={logout}>
+              <LogoutIcon size={16} />
+              Chiqish
+            </button>
+          </div>
+        )}
 
         <section className="basemap" aria-labelledby="bm-label">
           <span id="bm-label" className="label">
@@ -358,40 +408,21 @@ export default function FieldMonitor() {
                   {selectedField.properties.name}
                 </h2>
               </div>
-              {telegramBot ? (
+              {telegramAvailable && (
                 <div className="telegram">
                   <p>
                     <SendIcon size={16} className="accent-icon" />
                     <span>NDVI keskin tushsa, Telegram orqali ogohlantirish oling.</span>
                   </p>
-                  <a
-                    className="btn btn-telegram"
-                    href={`https://t.me/${telegramBot}?start=link_${selectedField.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                  <button type="button" className="btn btn-telegram" onClick={openTelegramLink}>
                     <SendIcon size={16} />
                     Telegramda ulash
-                  </a>
-                </div>
-              ) : (
-                <div className="telegram">
-                  <p>
-                    <SendIcon size={16} className="accent-icon" />
-                    <span>Telegram ogohlantirishlari uchun botga yozing:</span>
-                  </p>
-                  <button
-                    type="button"
-                    className="code-chip"
-                    aria-label={`${linkCommand} — nusxa olish`}
-                    onClick={() => copyLinkCommand(linkCommand)}
-                  >
-                    <code>{linkCommand}</code>
-                    {copied ? <CheckIcon size={16} className="accent-icon" /> : <CopyIcon size={16} />}
                   </button>
-                  <span className="sr-only" role="status">
-                    {copied ? "Nusxa olindi" : ""}
-                  </span>
+                  {blockedLinkUrl && (
+                    <a className="telegram-fallback" href={blockedLinkUrl} target="_blank" rel="noopener noreferrer">
+                      Telegram ochilmadimi? Shu yerni bosing.
+                    </a>
+                  )}
                 </div>
               )}
               <div className="stack">

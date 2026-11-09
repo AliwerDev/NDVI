@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # Telegram. Without a token the bot does not start and alerts are not sent.
     telegram_bot_token: str | None = None
 
+    # Accounts. A login session lasts this many days.
+    session_days: int = 30
+    # A Telegram login or link code works for this many minutes.
+    telegram_code_minutes: int = 10
+
     # Comma-separated list of web origins that may call the API from a browser (the frontend).
     cors_origins: str = "http://localhost:3000"
 

@@ -113,6 +113,13 @@ export const AlertIcon = icon(<path d="M12 7v6M12 17h.01" />, { strokeWidth: 2.5
 
 export const CloseIcon = icon(<path d="M18 6 6 18M6 6l12 12" />);
 
+export const LogoutIcon = icon(
+  <>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="m16 17 5-5-5-5M21 12H9" />
+  </>,
+);
+
 export const ArrowRightIcon = icon(<path d="M5 12h14M13 6l6 6-6 6" />);
 
 export const InfoIcon = icon(

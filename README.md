@@ -40,10 +40,10 @@ The Docker Compose file starts four services:
 
 | Service | Command | Purpose |
 |---|---|---|
-| `db` | PostGIS image | Stores fields, NDVI observations, alerts, and Telegram links. |
+| `db` | PostGIS image | Stores users, sessions, fields, NDVI observations, alerts, and Telegram links. |
 | `api` | `uvicorn app.main:app` | REST API. |
 | `scheduler` | `python -m app.scheduler` | Daily NDVI update and drop detection. Sends the alerts. |
-| `bot` | `python -m app.bot` | Telegram commands: `/start`, `/link`, `/unlink`, `/fields`. |
+| `bot` | `python -m app.bot` | Telegram login and commands: `/start`, `/link`, `/unlink`, `/fields`. |
 
 The frontend runs on your computer with `npm run dev`.
 
@@ -111,20 +111,34 @@ Open http://localhost:3000. The home page explains NDVI in simple Uzbek. The map
 
 If the API does not run on `http://localhost:8000`, copy `frontend/.env.example` to `frontend/.env.local` and change `NEXT_PUBLIC_API_URL`. Add the frontend address to `CORS_ORIGINS` in `.env`.
 
+## Accounts
+
+Each user sees only their own fields. Another user's field gives `404`.
+
+A user signs in on `/login` in one of two ways:
+
+- **Username and password.** Registration is open. The username has 3–32 characters: `a–z`, `0–9`, `_`, `.`. The password has at least 8 characters. The API stores a salted scrypt hash.
+- **Telegram.** The browser opens `https://t.me/<bot>?start=login_<code>`. The user taps "Start", and the bot confirms the login. The browser polls `POST /auth/telegram/poll` with a secret `poll_token` and gets the session. The code is valid for `TELEGRAM_CODE_MINUTES` and works once.
+
+A login gives a session token. The frontend keeps it in `localStorage` and sends `Authorization: Bearer <token>`. The API stores only the SHA-256 hash of the token. A session lasts `SESSION_DAYS`.
+
+The first registered user gets all fields that existed before accounts (fields without an owner).
+
 ## Telegram bot
 
 1. Set `TELEGRAM_BOT_TOKEN` in `.env`.
 2. Run `docker compose up -d bot`.
-3. In Telegram, send `/start` to the bot.
-4. Send `/link 3` to receive alerts for field 3. The frontend shows the field number.
+3. Sign in on the website, select a field, and click **Telegramda ulash**.
+4. In Telegram, tap "Start". The bot links the chat to the field.
 
-The frontend also shows a "Telegramda ulash" button for the selected field. The button opens `https://t.me/<bot>?start=link_<id>`. When the user taps "Start", the bot links the field. The API gets the bot username from Telegram (`GET /telegram/bot`). If the token is empty or Telegram is unreachable, the frontend shows the `/link <id>` command instead.
+The **Telegramda ulash** button opens a one-time link `https://t.me/<bot>?start=link_<code>`. The bot subscribes the chat and binds the Telegram account to the website account. After that, "Telegram orqali kirish" opens the same account, and `/link <id>` works for this user's fields. The API gets the bot username from Telegram (`GET /telegram/bot`). If the token is empty or Telegram is unreachable, the frontend hides the Telegram buttons.
 
 | Command | Result |
 |---|---|
 | `/start` | Shows the help text. |
-| `/start link_<id>` | Links the chat to the field. The deep link from the frontend sends it. |
-| `/link <id>` | Links the chat to the field. |
+| `/start login_<code>` | Confirms a website login. The login page sends it. |
+| `/start link_<code>` | Links the chat to a field. The **Telegramda ulash** button sends it. |
+| `/link <id>` | Links the chat to the field, only if the field belongs to this Telegram account. |
 | `/unlink <id>` | Removes the link. |
 | `/fields` | Lists the linked fields with the latest NDVI. |
 
@@ -147,15 +161,25 @@ All settings come from `.env`. See `.env.example` for the full list.
 | `SCHEDULER_HOUR`, `SCHEDULER_MINUTE` | `7`, `0` | Time of the daily job. |
 | `SCHEDULER_LOOKBACK_DAYS` | `10` | Search period for a field without observations. |
 | `TELEGRAM_BOT_TOKEN` | empty | Bot token. Empty disables Telegram. |
+| `SESSION_DAYS` | `30` | Lifetime of a login session. |
+| `TELEGRAM_CODE_MINUTES` | `10` | Lifetime of a Telegram login or link code. |
 | `CORS_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins that can call the API. |
 
 ## API
 
+All endpoints except `/health`, `/auth/register`, `/auth/login`, `/auth/telegram/*`, and `/telegram/bot` need `Authorization: Bearer <token>`. Without it, the API returns `401`.
+
 | Method | Path | Result |
 |---|---|---|
 | `GET` | `/health` | API and database status. HTTP 503 if the database is down. |
-| `POST` | `/fields` | Creates a field. Returns a GeoJSON Feature (201). |
-| `GET` | `/fields` | Returns all fields as a GeoJSON FeatureCollection. |
+| `POST` | `/auth/register` | Creates an account and signs in (201). Returns `token` and `user`. `409` if the username is taken. |
+| `POST` | `/auth/login` | Signs in with a username and password. `401` if they are wrong. |
+| `POST` | `/auth/logout` | Ends the current session (204). |
+| `GET` | `/auth/me` | Returns the signed-in user. |
+| `POST` | `/auth/telegram/start` | Starts a Telegram login. Returns the t.me `url` and a `poll_token`. `503` without a bot. |
+| `POST` | `/auth/telegram/poll` | Returns `pending`, or `confirmed` with a session once. `410` when the code expired. |
+| `POST` | `/fields` | Creates a field for the signed-in user. Returns a GeoJSON Feature (201). |
+| `GET` | `/fields` | Returns the user's fields as a GeoJSON FeatureCollection. |
 | `GET` | `/fields/{id}` | Returns one field. |
 | `PATCH` | `/fields/{id}` | Changes `name` and/or `geometry`. |
 | `DELETE` | `/fields/{id}` | Deletes a field and its observations (204). |
@@ -166,6 +190,7 @@ All settings come from `.env`. See `.env.example` for the full list.
 | `GET` | `/observations/{id}/image` | Returns the PNG URL and its lon/lat bounds. |
 | `GET` | `/observations/{id}/image.png` | Returns the NDVI map as a colored PNG. |
 | `GET` | `/telegram/bot` | Returns the bot username for the deep link, or `null`. |
+| `POST` | `/fields/{id}/telegram-link` | Returns a one-time t.me `url` that links a chat to the field. |
 
 Dates use the format `YYYY-MM-DD`. Request body for `POST /fields`. GeoJSON uses the order `[longitude, latitude]`:
 
@@ -212,11 +237,13 @@ uv run pytest
 
 ```
 app/
-  api/           FastAPI routers: fields, ndvi, observations, health
-  bot/           Telegram bot: commands, Uzbek messages, alert delivery
-  models/        SQLAlchemy models: Field, NdviObservation, Alert, TelegramSubscription
+  api/           FastAPI routers: auth, fields, ndvi, observations, telegram, health
+  bot/           Telegram bot: commands, login confirmation, Uzbek messages, alert delivery
+  models/        SQLAlchemy models: User, AuthSession, TelegramToken, Field, NdviObservation, Alert,
+                 TelegramSubscription
   schemas/       Pydantic request and response models
-  services/      stac (scene search), ndvi (computation), history, alerts, render (PNG)
+  services/      auth (passwords, sessions, Telegram codes), stac (scene search), ndvi (computation),
+                 history, alerts, render (PNG)
   config.py      Settings from .env
   db.py          Database engine and session
   main.py        FastAPI app
@@ -235,7 +262,9 @@ data/            NDVI COG files (not in git)
 - **Small fields.** A field smaller than one 10 m pixel has no pixels and never gets NDVI.
 - **Speed.** One NDVI request reads three bands over HTTPS and takes a few seconds. With five cloudy scenes, the request can take 20–30 seconds. A backfill reads at most 40 scenes.
 - **Planetary Computer limits.** The API limits are not published. Many fields in one run can hit a rate limit. Without `PC_SDK_SUBSCRIPTION_KEY`, the token limits are lower.
-- **No access control.** The API has no authentication. Any chat can send `/link <id>` for any field.
+- **No login rate limit.** The API does not limit failed password attempts. Put a rate limit in the reverse proxy for production.
+- **Token in localStorage.** A script that runs on the page (XSS) can read the session token. An HttpOnly cookie is safer, but it needs the frontend and the API on the same site.
+- **No password reset.** A user who forgets the password and has no linked Telegram account cannot sign in.
 - **Old files stay.** When you delete a field, its COG files stay in `data/`.
 - **Alert delivery.** An alert is marked as sent after one delivery attempt, also if Telegram fails for some chats.
 - **Map tiles.** The OpenStreetMap and Esri World Imagery tiles are for development only. For production, use a tile provider with a license for your use.

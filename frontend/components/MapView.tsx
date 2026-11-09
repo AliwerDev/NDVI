@@ -15,7 +15,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { MinusIcon, PlusIcon } from "@/components/icons";
 import type { SearchTarget } from "@/components/MapSearch";
-import type { FieldFeature, ObservationImage, Position } from "@/lib/api";
+import { API_URL, type FieldFeature, type ObservationImage, type Position } from "@/lib/api";
+import { getToken } from "@/lib/auth";
 
 // The bundler moves maplibre-gl, so its default worker URL gives 404 and GeoJSON layers
 // (fields, drawing) do not render. scripts/copy-maplibre-worker.mjs puts the worker in public/.
@@ -126,6 +127,11 @@ export default function MapView(props: Props) {
       style: STYLE,
       center: [64.5, 41.4], // Uzbekistan
       zoom: 5,
+      // The NDVI PNG comes from our API, which needs the session token. Tile servers get no token.
+      transformRequest: (url) => {
+        const token = getToken();
+        return token && url.startsWith(API_URL) ? { url, headers: { Authorization: `Bearer ${token}` } } : { url };
+      },
     });
     mapRef.current = map;
 

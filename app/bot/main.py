@@ -10,7 +10,9 @@ from aiogram.types import Message
 
 from app.bot import messages
 from app.bot.subscriptions import (
+    confirm_login,
     link_chat,
+    link_with_code,
     list_chat_fields,
     parse_field_id,
     parse_start_payload,
@@ -18,6 +20,7 @@ from app.bot.subscriptions import (
 )
 from app.config import get_settings
 from app.db import SessionLocal
+from app.services.auth import TelegramIdentity
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -33,23 +36,36 @@ async def _run_db(func: Callable[..., str], *args: object) -> str:
     return await asyncio.to_thread(call)
 
 
+def _identity(message: Message) -> TelegramIdentity | None:
+    user = message.from_user
+    if user is None:
+        return None
+    return TelegramIdentity(id=user.id, username=user.username, full_name=user.full_name)
+
+
 @router.message(CommandStart())
 async def handle_start(message: Message, command: CommandObject) -> None:
-    # The "Telegramda ulash" button in the frontend opens the bot with the payload "link_<id>".
-    field_id = parse_start_payload(command.args)
-    if field_id is None:
+    # The frontend opens the bot with "login_<code>" (sign in) or "link_<code>" (field alerts).
+    payload = parse_start_payload(command.args)
+    identity = _identity(message)
+    if payload is None or identity is None:
         await message.answer(messages.WELCOME)
         return
-    await message.answer(await _run_db(link_chat, message.chat.id, field_id))
+    if payload.kind == "login":
+        reply = await _run_db(confirm_login, payload.code, identity)
+    else:
+        reply = await _run_db(link_with_code, payload.code, identity, message.chat.id)
+    await message.answer(reply)
 
 
 @router.message(Command("link"))
 async def handle_link(message: Message, command: CommandObject) -> None:
     field_id = parse_field_id(command.args)
-    if field_id is None:
+    identity = _identity(message)
+    if field_id is None or identity is None:
         await message.answer(messages.LINK_USAGE)
         return
-    await message.answer(await _run_db(link_chat, message.chat.id, field_id))
+    await message.answer(await _run_db(link_chat, message.chat.id, field_id, identity.id))
 
 
 @router.message(Command("unlink"))

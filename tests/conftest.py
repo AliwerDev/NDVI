@@ -12,17 +12,23 @@ from shapely.geometry import box
 from sqlalchemy import Engine, create_engine, make_url, text
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.config import get_settings
 from app.db import get_db
 from app.main import app
-from app.models import Field
+from app.models import Field, User
+from app.services.auth import create_session, hash_password
 
 ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
 
 
+TELEGRAM_USER_ID = 555000111
+
+
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    """Test client without a database. Removes dependency overrides after each test."""
+    """Test client without a database. A signed-in user is faked, so validation tests reach the body checks."""
+    app.dependency_overrides[get_current_user] = lambda: User(id=1, username="tester")
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -78,18 +84,34 @@ def db_session(db_engine: Engine) -> Iterator[Session]:
 
 
 @pytest.fixture
-def field(db_session: Session) -> Field:
-    """A stored field: a small square near Tashkent."""
-    field = Field(name="Paxta-1", geometry=from_shape(box(69.20, 41.30, 69.21, 41.31), srid=4326))
+def user(db_session: Session) -> User:
+    """A stored account with a password and a linked Telegram account."""
+    user = User(username="fermer", password_hash=hash_password("parol-12345"), telegram_id=TELEGRAM_USER_ID)
+    db_session.add(user)
+    db_session.commit()
+    return user
+
+
+@pytest.fixture
+def field(db_session: Session, user: User) -> Field:
+    """A stored field of `user`: a small square near Tashkent."""
+    field = Field(owner_id=user.id, name="Paxta-1", geometry=from_shape(box(69.20, 41.30, 69.21, 41.31), srid=4326))
     db_session.add(field)
     db_session.commit()
     return field
 
 
 @pytest.fixture
-def db_client(db_session: Session) -> Iterator[TestClient]:
-    """Test client that uses the test database session."""
+def anonymous_client(db_session: Session) -> Iterator[TestClient]:
+    """Test client on the test database without a login."""
     app.dependency_overrides[get_db] = lambda: db_session
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def db_client(anonymous_client: TestClient, db_session: Session, user: User) -> TestClient:
+    """Test client on the test database, signed in as `user` with a real session token."""
+    anonymous_client.headers["Authorization"] = f"Bearer {create_session(db_session, user)}"
+    return anonymous_client

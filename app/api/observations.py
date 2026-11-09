@@ -6,8 +6,8 @@ from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.fields import DbSession
-from app.models import NdviObservation
+from app.api.deps import CurrentUser, DbSession
+from app.models import Field, NdviObservation, User
 from app.services.render import image_bounds, render_png
 
 router = APIRouter(prefix="/observations", tags=["ndvi"])
@@ -21,9 +21,10 @@ class ObservationImage(BaseModel):
     bounds: tuple[float, float, float, float]
 
 
-def _cog_path_or_404(db: Session, observation_id: int) -> Path:
+def _cog_path_or_404(db: Session, observation_id: int, user: User) -> Path:
     observation = db.get(NdviObservation, observation_id)
-    if observation is None:
+    field = db.get(Field, observation.field_id) if observation is not None else None
+    if observation is None or field is None or field.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found")
     path = Path(observation.cog_path)
     if not path.exists():
@@ -32,9 +33,9 @@ def _cog_path_or_404(db: Session, observation_id: int) -> Path:
 
 
 @router.get("/{observation_id}/image")
-def get_observation_image(observation_id: int, db: DbSession) -> ObservationImage:
+def get_observation_image(observation_id: int, user: CurrentUser, db: DbSession) -> ObservationImage:
     """Return the PNG URL and its bounds for a MapLibre image source."""
-    path = _cog_path_or_404(db, observation_id)
+    path = _cog_path_or_404(db, observation_id, user)
     return ObservationImage(url=f"/observations/{observation_id}/image.png", bounds=image_bounds(path))
 
 
@@ -43,7 +44,10 @@ def get_observation_image(observation_id: int, db: DbSession) -> ObservationImag
     response_class=Response,
     responses={200: {"content": {"image/png": {}}}},
 )
-def get_observation_png(observation_id: int, db: DbSession) -> Response:
-    """Return the NDVI of the observation as a colored PNG in Web Mercator."""
-    path = _cog_path_or_404(db, observation_id)
+def get_observation_png(observation_id: int, user: CurrentUser, db: DbSession) -> Response:
+    """Return the NDVI of the observation as a colored PNG in Web Mercator.
+
+    MapLibre sends the Authorization header through transformRequest in the frontend.
+    """
+    path = _cog_path_or_404(db, observation_id, user)
     return Response(content=render_png(path), media_type="image/png")
