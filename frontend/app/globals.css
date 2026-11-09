@@ -45,7 +45,8 @@ body {
   position: relative;
 }
 
-.map {
+/* Two classes, so this rule wins over ".maplibregl-map { position: relative }" from maplibre-gl.css. */
+.map-wrap .map {
   position: absolute;
   inset: 0;
 }

@@ -91,6 +91,13 @@ export default function FieldMonitor() {
     };
   }, [selectedObservation]);
 
+  // Selecting a field ends the drawing mode.
+  const selectField = (id: number) => {
+    setDrawing(false);
+    setDraftPoints([]);
+    setSelectedId(id);
+  };
+
   const startDrawing = () => {
     setSelectedId(null);
     setDraftPoints([]);
@@ -202,7 +209,7 @@ export default function FieldMonitor() {
               <li key={field.id}>
                 <button
                   className={field.id === selectedId ? "link active" : "link"}
-                  onClick={() => setSelectedId(field.id)}
+                  onClick={() => selectField(field.id)}
                 >
                   {field.id}. {field.properties.name}
                 </button>
@@ -288,7 +295,7 @@ export default function FieldMonitor() {
         <MapView
           fields={fields}
           selectedId={selectedId}
-          onSelectField={setSelectedId}
+          onSelectField={selectField}
           drawing={drawing}
           draftPoints={draftPoints}
           onAddPoint={(point) => setDraftPoints((points) => [...points, point])}
