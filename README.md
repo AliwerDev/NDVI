@@ -118,7 +118,7 @@ If the API does not run on `http://localhost:8000`, copy `frontend/.env.example`
 3. In Telegram, send `/start` to the bot.
 4. Send `/link 3` to receive alerts for field 3. The frontend shows the field number.
 
-To link a field with one button, set `NEXT_PUBLIC_TELEGRAM_BOT` in `frontend/.env.local` to the bot username without `@`. The "Telegramda ulash" button then opens `https://t.me/<bot>?start=link_<id>`. When the user taps "Start", the bot links the field.
+The frontend also shows a "Telegramda ulash" button for the selected field. The button opens `https://t.me/<bot>?start=link_<id>`. When the user taps "Start", the bot links the field. The API gets the bot username from Telegram (`GET /telegram/bot`). If the token is empty or Telegram is unreachable, the frontend shows the `/link <id>` command instead.
 
 | Command | Result |
 |---|---|
@@ -165,6 +165,7 @@ All settings come from `.env`. See `.env.example` for the full list.
 | `POST` | `/fields/{id}/ndvi/backfill?start=&end=` | Fills the history in the background (202). |
 | `GET` | `/observations/{id}/image` | Returns the PNG URL and its lon/lat bounds. |
 | `GET` | `/observations/{id}/image.png` | Returns the NDVI map as a colored PNG. |
+| `GET` | `/telegram/bot` | Returns the bot username for the deep link, or `null`. |
 
 Dates use the format `YYYY-MM-DD`. Request body for `POST /fields`. GeoJSON uses the order `[longitude, latitude]`:
 

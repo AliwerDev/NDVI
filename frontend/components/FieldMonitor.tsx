@@ -39,10 +39,6 @@ const RAMP = `linear-gradient(to right, ${NDVI_STOPS.map(
   ([value, color]) => `${color} ${(((value + 0.2) / 1.1) * 100).toFixed(2)}%`,
 ).join(", ")})`;
 
-// The bot username without "@". When it is set, one button links the field through a deep link
-// (t.me/<bot>?start=link_<id>). Without it, the user types "/link <id>" to the bot.
-const TELEGRAM_BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT?.replace(/^@/, "").trim() || null;
-
 // After a backfill starts, reload the history every 10 s for 3 minutes.
 const POLL_INTERVAL_MS = 10_000;
 const POLL_COUNT = 18;
@@ -63,6 +59,9 @@ export default function FieldMonitor() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  // With a bot username, one button links the field through t.me/<bot>?start=link_<id>.
+  // Without it, the user types "/link <id>" to the bot.
+  const [telegramBot, setTelegramBot] = useState<string | null>(null);
   const closeReport = useCallback(() => setReportOpen(false), []);
 
   const [busy, setBusy] = useState(false);
@@ -106,6 +105,11 @@ export default function FieldMonitor() {
     run(loadFields);
     return stopPolling;
   }, [run, loadFields]);
+
+  useEffect(() => {
+    // An error here only keeps the /link fallback, so it is not shown to the user.
+    api.telegramBot().then(setTelegramBot).catch(() => undefined);
+  }, []);
 
   // When the field changes: load its history and show the newest NDVI image.
   useEffect(() => {
@@ -333,7 +337,6 @@ export default function FieldMonitor() {
                       className={active ? "field-row active" : "field-row"}
                       onClick={() => selectField(field.id)}
                     >
-                      <span className="swatch" aria-hidden="true" />
                       <span className="field-id">{field.id}.</span>
                       <span className="field-name">{field.properties.name}</span>
                       {active && <CheckIcon size={16} className="accent-icon" />}
@@ -354,7 +357,7 @@ export default function FieldMonitor() {
                   {selectedField.properties.name}
                 </h2>
               </div>
-              {TELEGRAM_BOT ? (
+              {telegramBot ? (
                 <div className="telegram">
                   <p>
                     <SendIcon size={16} className="accent-icon" />
@@ -362,7 +365,7 @@ export default function FieldMonitor() {
                   </p>
                   <a
                     className="btn btn-telegram"
-                    href={`https://t.me/${TELEGRAM_BOT}?start=link_${selectedField.id}`}
+                    href={`https://t.me/${telegramBot}?start=link_${selectedField.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

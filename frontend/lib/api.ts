@@ -73,6 +73,9 @@ export const api = {
 
   history: (id: number) => request<Observation[]>(`/fields/${id}/ndvi`),
 
+  // The bot username for the t.me deep link. null when the bot is off or Telegram is unreachable.
+  telegramBot: () => request<{ username: string | null }>("/telegram/bot").then((info) => info.username),
+
   observationImage: (id: number) =>
     request<ObservationImage>(`/observations/${id}/image`).then((image) => ({
       ...image,

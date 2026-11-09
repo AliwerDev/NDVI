@@ -19,8 +19,6 @@
   --danger-text: #8f1d17;
   --disabled-bg: #e6dfd8;
   --disabled-text: #4d4b46;
-  --field: #f59e0b;
-  --field-selected: #2563eb;
   --draft: #facc15;
 
   --shadow-card: 0 1px 3px rgba(20, 20, 19, 0.08);
@@ -103,12 +101,60 @@ p {
   width: 380px;
   flex-shrink: 0;
   overflow-y: auto;
-  padding: 20px;
+  /* Space for the scrollbar is kept, so the content does not jump when a field is selected. */
+  scrollbar-gutter: stable;
+  padding: 20px 12px 20px 20px;
   background: var(--bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Thin warm scrollbars for the scroll areas. Chrome and Firefox read the standard properties.
+   Safari reads the ::-webkit-scrollbar rules. */
+.sidebar,
+.report-body,
+.search-results,
+.table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.sidebar::-webkit-scrollbar,
+.report-body::-webkit-scrollbar,
+.search-results::-webkit-scrollbar,
+.table-wrap::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.report-body::-webkit-scrollbar-track,
+.search-results::-webkit-scrollbar-track,
+.table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.report-body::-webkit-scrollbar-thumb,
+.search-results::-webkit-scrollbar-thumb,
+.table-wrap::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.report-body::-webkit-scrollbar-thumb:hover,
+.search-results::-webkit-scrollbar-thumb:hover,
+.table-wrap::-webkit-scrollbar-thumb:hover {
+  background-color: #bfb5a8;
+}
+
+.sidebar:hover {
+  scrollbar-color: #bfb5a8 transparent;
 }
 
 /* Without this, the flex column shrinks the buttons and cards when the sidebar content overflows. */
@@ -518,14 +564,6 @@ p {
   background: var(--sunken);
 }
 
-.field-row .swatch {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: var(--field);
-}
-
 .field-row .field-id {
   min-width: 22px;
   color: var(--muted);
@@ -544,10 +582,6 @@ p {
   background: var(--accent-soft);
   color: var(--accent-text);
   font-weight: 600;
-}
-
-.field-row.active .swatch {
-  background: var(--field-selected);
 }
 
 .field-row.active .field-id {
