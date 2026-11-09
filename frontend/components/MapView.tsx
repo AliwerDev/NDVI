@@ -8,12 +8,17 @@ import {
   Map as MapLibreMap,
   type MapMouseEvent,
   Marker,
+  setWorkerUrl,
   type StyleSpecification,
 } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 
 import type { SearchTarget } from "@/components/MapSearch";
 import type { FieldFeature, ObservationImage, Position } from "@/lib/api";
+
+// The bundler moves maplibre-gl, so its default worker URL gives 404 and GeoJSON layers
+// (fields, drawing) do not render. scripts/copy-maplibre-worker.mjs puts the worker in public/.
+setWorkerUrl("/maplibre-gl-worker.mjs");
 
 export type Basemap = "osm" | "satellite";
 
