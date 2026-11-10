@@ -187,13 +187,6 @@ export default function WeatherCard({ weather, loading, failed }: Props) {
               </div>
             </>
           )}
-
-          <p className="meta wx-source">
-            Taxminiy prognoz, ~10 km toʻr. Maʼlumot:{" "}
-            <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
-              {weather.source}
-            </a>
-          </p>
         </>
       )}
     </section>
