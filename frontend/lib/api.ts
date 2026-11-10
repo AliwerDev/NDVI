@@ -116,6 +116,9 @@ export const api = {
   createField: (name: string, geometry: Polygon) =>
     request<FieldFeature>("/fields", { method: "POST", body: JSON.stringify({ name, geometry }) }),
 
+  renameField: (id: number, name: string) =>
+    request<FieldFeature>(`/fields/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+
   deleteField: (id: number) => request<void>(`/fields/${id}`, { method: "DELETE" }),
 
   computeNdvi: (id: number, start: string, end: string) =>
@@ -147,6 +150,10 @@ export const api = {
   logout: () => request<void>("/auth/logout", { method: "POST" }),
 
   me: () => request<User>("/auth/me"),
+
+  // Only the name the app shows changes. The login stays the same.
+  updateDisplayName: (displayName: string) =>
+    request<User>("/auth/me", { method: "PATCH", body: JSON.stringify({ display_name: displayName }) }),
 
   telegramLoginStart: () => request<TelegramLoginStart>("/auth/telegram/start", { method: "POST" }),
 

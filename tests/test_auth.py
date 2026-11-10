@@ -271,3 +271,40 @@ def test_telegram_only_account_cannot_unlink(anonymous_client: TestClient, db_se
 
     assert anonymous_client.delete("/auth/telegram", headers=_auth(token)).status_code == 409
     assert anonymous_client.get("/auth/me", headers=_auth(token)).json()["has_password"] is False
+
+
+# --- Display name ---
+
+
+def test_display_name_can_be_changed_and_login_stays(anonymous_client: TestClient) -> None:
+    token = _register(anonymous_client)["token"]
+
+    response = anonymous_client.patch("/auth/me", json={"display_name": "  Alisher aka  "}, headers=_auth(token))
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "Alisher aka"
+    assert response.json()["username"] == "ali_01"
+    login = anonymous_client.post("/auth/login", json={"username": "ali_01", "password": "parol-12345"})
+    assert login.json()["user"]["display_name"] == "Alisher aka"
+
+
+@pytest.mark.parametrize("name", ["", "   ", "x" * 65])
+def test_display_name_rejects_empty_and_long(db_client: TestClient, name: str) -> None:
+    assert db_client.patch("/auth/me", json={"display_name": name}).status_code == 422
+
+
+def test_display_name_needs_login(anonymous_client: TestClient) -> None:
+    assert anonymous_client.patch("/auth/me", json={"display_name": "Ali"}).status_code == 401
+
+
+def test_telegram_login_keeps_name_set_by_user(anonymous_client: TestClient, db_session: Session) -> None:
+    started = start_telegram_login(db_session)
+    confirm_login(db_session, started.code, TELEGRAM)
+    token = anonymous_client.post("/auth/telegram/poll", json={"poll_token": started.poll_token}).json()["token"]
+    anonymous_client.patch("/auth/me", json={"display_name": "Dala egasi"}, headers=_auth(token))
+
+    again = start_telegram_login(db_session)
+    confirm_login(db_session, again.code, TELEGRAM)
+    confirmed = anonymous_client.post("/auth/telegram/poll", json={"poll_token": again.poll_token}).json()
+
+    assert confirmed["user"]["display_name"] == "Dala egasi"

@@ -7,6 +7,7 @@ from app.api.telegram import require_bot_username
 from app.schemas.auth import (
     AuthResult,
     LoginRequest,
+    ProfileUpdate,
     RegisterRequest,
     TelegramLinkResponse,
     TelegramLoginStartResponse,
@@ -21,6 +22,7 @@ from app.services.auth import (
     create_session,
     delete_session,
     poll_telegram_login,
+    set_display_name,
     start_telegram_login,
     unlink_telegram,
 )
@@ -56,6 +58,12 @@ def logout(_user: CurrentUser, credentials: BearerToken, db: DbSession) -> Respo
 @router.get("/me")
 def me(user: CurrentUser) -> UserRead:
     return UserRead.from_user(user)
+
+
+@router.patch("/me")
+def update_me(body: ProfileUpdate, user: CurrentUser, db: DbSession) -> UserRead:
+    """Change the display name. The username for login stays the same."""
+    return UserRead.from_user(set_display_name(db, user, body.display_name))
 
 
 @router.post("/telegram/start")

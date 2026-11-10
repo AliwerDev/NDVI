@@ -649,73 +649,29 @@ p {
   color: var(--accent);
 }
 
-/* Signed-in user card in the sidebar: the user and their one Telegram account for alerts */
+/* Signed-in user row in the sidebar. The whole row is a link to the settings page. */
 
 .account {
+  min-height: 52px;
+  padding: 8px 8px 8px 10px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-}
-
-.account-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 8px 8px 10px;
-}
-
-.account-telegram {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 8px 10px 12px;
-  border-top: 1px solid var(--border);
-  font-size: 13px;
-  color: var(--text-2);
-}
-
-.account-telegram strong {
   color: var(--text);
+  text-decoration: none;
+  transition: background-color 0.15s;
 }
 
-.account-telegram > span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-telegram-icon {
-  flex: none;
-  color: #1e96d4;
-}
-
-.account-telegram-off {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  padding: 12px;
-  line-height: 1.45;
-}
-
-.account-text-btn {
-  flex: none;
-  height: 32px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.account-text-btn:hover {
+.account:hover {
   background: var(--sunken);
-  color: var(--danger);
+}
+
+.account:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .account-avatar {
@@ -736,42 +692,45 @@ p {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 1px;
   font-size: 14px;
   font-weight: 600;
 }
 
-.account-name span {
+.account-name > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.account-name span + span {
+.account-tg {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
   font-weight: 400;
   color: var(--muted);
 }
 
-.account-logout {
+.account-tg svg {
   flex: none;
+}
+
+/* Not linked: alerts go nowhere, so the line is amber, not gray. */
+.account-tg.off {
+  color: #8a5a00;
+}
+
+.account-gear {
+  flex: none;
+  width: 36px;
   height: 36px;
-  padding: 0 10px;
-  border: 0;
   border-radius: 8px;
-  background: transparent;
   color: var(--text-2);
-  font-size: 13px;
-  font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
 }
-
-.account-logout:hover {
-  background: var(--sunken);
-  color: var(--danger);
-}
-
 
 /* Chart */
 

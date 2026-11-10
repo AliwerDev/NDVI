@@ -1,0 +1,441 @@
+/* Settings page. Buttons, inputs and badges come from globals.css. */
+
+.settings {
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.settings a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.settings-top {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-top-inner,
+.settings-main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.settings-top-inner {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+  font-family: var(--serif);
+  font-size: 22px;
+  letter-spacing: -0.3px;
+}
+
+.settings-back {
+  height: 40px;
+  text-decoration: none;
+}
+
+.settings-main {
+  padding-top: 40px;
+  padding-bottom: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-head h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: -0.6px;
+}
+
+.settings-head p,
+.settings-section-head p {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.settings-section-head p {
+  font-size: 14px;
+}
+
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-card h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.settings-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Profile */
+
+.settings-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-avatar {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+}
+
+.settings-identity > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-identity strong {
+  font-size: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-identity span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.settings-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-inline .input {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.settings-inline .btn {
+  flex: none;
+  padding: 0 18px;
+}
+
+.settings-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.settings-saved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.settings-facts {
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 24px;
+  font-size: 14px;
+}
+
+.settings-facts dt {
+  color: var(--muted);
+}
+
+.settings-facts dd {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* Telegram */
+
+.settings-telegram {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  background: var(--bg);
+  border-radius: 12px;
+}
+
+.settings-telegram-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #e8f0f7;
+  color: #1c6fae;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-telegram-text {
+  flex: 1 1 180px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-telegram-text strong {
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-telegram-text span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--accent-text);
+}
+
+.settings-telegram > p {
+  flex: 1 1 220px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.settings-telegram .btn {
+  flex: none;
+}
+
+.settings .btn-telegram {
+  background: #1c6fae;
+}
+
+.settings .btn-telegram:hover:not(:disabled) {
+  background: #165a8e;
+}
+
+.settings-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* Fields */
+
+.settings-fields {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-fields li {
+  min-height: 52px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-fields li:last-child {
+  border-bottom: 0;
+}
+
+.settings-fields li.editing {
+  padding: 10px 0;
+}
+
+.settings-field-id {
+  min-width: 28px;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-fields li.editing .settings-field-id {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.settings-field-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.settings-field-form {
+  flex: 1 1 280px;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-field-form .input {
+  flex: 1 1 200px;
+  min-width: 0;
+  height: 40px;
+}
+
+.settings-field-form .btn {
+  height: 40px;
+}
+
+.settings-text-btn {
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-text-btn:hover {
+  background: var(--sunken);
+}
+
+.settings-icon-btn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-icon-btn:hover {
+  background: var(--sunken);
+  color: var(--text);
+}
+
+/* Logout */
+
+.settings-exit {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-exit .settings-section-head {
+  flex: 1 1 280px;
+}
+
+.settings-exit .btn {
+  flex: none;
+  padding: 0 18px;
+}
+
+/* Messages */
+
+.settings-error {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--danger-text);
+}
+
+.settings-error svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--danger);
+}
+
+.settings-loading {
+  display: flex;
+  justify-content: center;
+  padding: 64px 0;
+  color: var(--muted);
+}
+
+@media (max-width: 600px) {
+  .settings-top-inner,
+  .settings-main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .settings-main {
+    padding-top: 28px;
+  }
+
+  .settings-head h1 {
+    font-size: 32px;
+  }
+
+  .settings-card {
+    padding: 20px 16px;
+  }
+}

@@ -14,10 +14,10 @@ import {
   GlobeIcon,
   HistoryIcon,
   ImageIcon,
-  LogoutIcon,
   MapIcon,
   PlusIcon,
   SendIcon,
+  SettingsIcon,
   SpinnerIcon,
   TrashIcon,
   UndoIcon,
@@ -39,7 +39,6 @@ import {
   type Position,
   type User,
 } from "@/lib/api";
-import { clearToken } from "@/lib/auth";
 import { daysAgo, formatDate, isoDate, NDVI_STOPS, seasonStart } from "@/lib/ndvi";
 
 const BASEMAPS: { value: Basemap; label: string; Icon: typeof GlobeIcon }[] = [
@@ -60,18 +59,13 @@ const RAMP = `linear-gradient(to right, ${NDVI_STOPS.map(
 // While a backfill job runs: check its status every 3 s.
 const BACKFILL_POLL_MS = 3_000;
 
-// While the user links Telegram: check the account every 3 s, for as long as the code lives (10 min).
-const TELEGRAM_CHECK_MS = 3_000;
-const TELEGRAM_CODE_MS = 10 * 60_000;
-
 export default function FieldMonitor() {
   const [fields, setFields] = useState<FieldFeature[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [history, setHistory] = useState<Observation[]>([]);
   const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
   const [overlay, setOverlay] = useState<ObservationImage | null>(null);
-  // Farmers ask for the plain picture first, so the true color image is the default layer.
-  const [layer, setLayer] = useState<FieldLayer>("rgb");
+  const [layer, setLayer] = useState<FieldLayer>("ndvi");
   const [overlayLoading, setOverlayLoading] = useState(false);
   const [basemap, setBasemap] = useState<Basemap>("satellite");
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
@@ -85,11 +79,6 @@ export default function FieldMonitor() {
   const closeReport = useCallback(() => setReportOpen(false), []);
 
   const [user, setUser] = useState<User | null>(null);
-  // The "Telegramni ulash" button shows only when the bot runs.
-  const [telegramAvailable, setTelegramAvailable] = useState(false);
-  const [waitingForTelegram, setWaitingForTelegram] = useState(false);
-  // The link, when the browser blocked the new tab.
-  const [blockedLinkUrl, setBlockedLinkUrl] = useState<string | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [computing, setComputing] = useState(false);
@@ -132,38 +121,7 @@ export default function FieldMonitor() {
   useEffect(() => {
     // A 401 here sends the user to the login page (see lib/api.ts).
     api.me().then(setUser).catch(() => undefined);
-    // An error here only hides the Telegram button, so it is not shown to the user.
-    api
-      .telegramBot()
-      .then((username) => setTelegramAvailable(username !== null))
-      .catch(() => undefined);
   }, []);
-
-  // After "Telegramni ulash": the user taps "Start" in Telegram, then comes back. Check the account
-  // when the tab gets focus and every few seconds, until the link shows or the code expires.
-  useEffect(() => {
-    if (!waitingForTelegram) return;
-    const refresh = () =>
-      api
-        .me()
-        .then((me) => {
-          setUser(me);
-          if (me.telegram_linked) {
-            setWaitingForTelegram(false);
-            setBlockedLinkUrl(null);
-            setMessage("Telegram ulandi. Barcha maydonlaringiz boʻyicha ogohlantirishlar unga keladi.");
-          }
-        })
-        .catch(() => undefined);
-    window.addEventListener("focus", refresh);
-    const timer = setInterval(refresh, TELEGRAM_CHECK_MS);
-    const stop = setTimeout(() => setWaitingForTelegram(false), TELEGRAM_CODE_MS);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      clearInterval(timer);
-      clearTimeout(stop);
-    };
-  }, [waitingForTelegram]);
 
   // When the field changes: load its history and show the newest NDVI image.
   useEffect(() => {
@@ -307,47 +265,6 @@ export default function FieldMonitor() {
     });
   };
 
-  // The API makes a one-time t.me link. The bot binds that Telegram account to this user,
-  // and NDVI alerts for all fields go there.
-  const openTelegramLink = async () => {
-    setBlockedLinkUrl(null);
-    // Open the tab now, inside the click. A tab opened after an await is often blocked as a popup.
-    const tab = window.open("", "_blank");
-    try {
-      const url = await api.telegramLink();
-      if (tab) {
-        tab.opener = null;
-        tab.location.href = url;
-      } else {
-        setBlockedLinkUrl(url);
-      }
-      setWaitingForTelegram(true);
-    } catch (err) {
-      tab?.close();
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const unlinkTelegram = async () => {
-    setError(null);
-    try {
-      await api.telegramUnlink();
-      setUser(await api.me());
-      setMessage("Telegram uzildi. Ogohlantirishlar endi yuborilmaydi.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await api.logout();
-    } finally {
-      clearToken();
-      window.location.assign("/login");
-    }
-  };
-
   const computeNdvi = () => {
     if (!selectedField) return;
     setComputing(true);
@@ -390,51 +307,25 @@ export default function FieldMonitor() {
         </header>
 
         {user && (
-          <section className="account" aria-label="Hisob">
-            <div className="account-row">
-              <span className="account-avatar" aria-hidden="true">
-                {user.display_name.charAt(0).toUpperCase()}
+          <Link href="/settings" className="account" aria-label={`Sozlamalar: ${user.display_name}`}>
+            <span className="account-avatar" aria-hidden="true">
+              {user.display_name.charAt(0).toUpperCase()}
+            </span>
+            <span className="account-name">
+              <span>{user.display_name}</span>
+              <span className={user.telegram_linked ? "account-tg" : "account-tg off"}>
+                <SendIcon size={12} />
+                {user.telegram_linked
+                  ? user.telegram_username
+                    ? `@${user.telegram_username}`
+                    : "Telegram ulangan"
+                  : "Telegram ulanmagan"}
               </span>
-              <div className="account-name">
-                <span>{user.display_name}</span>
-                <span>{user.has_password ? "Login va parol" : "Telegram orqali"}</span>
-              </div>
-              <button type="button" className="account-logout" onClick={logout}>
-                <LogoutIcon size={16} />
-                Chiqish
-              </button>
-            </div>
-
-            {user.telegram_linked ? (
-              <div className="account-telegram">
-                <SendIcon size={16} className="account-telegram-icon" />
-                <span>
-                  Ogohlantirishlar:{" "}
-                  <strong>{user.telegram_username ? `@${user.telegram_username}` : "Telegram"}</strong>
-                </span>
-                {user.has_password && (
-                  <button type="button" className="account-text-btn" onClick={unlinkTelegram}>
-                    Uzish
-                  </button>
-                )}
-              </div>
-            ) : (
-              telegramAvailable && (
-                <div className="account-telegram account-telegram-off">
-                  <p>Barcha maydonlaringiz boʻyicha NDVI ogohlantirishlari Telegramga kelishi uchun ulang.</p>
-                  <button type="button" className="btn btn-telegram" onClick={openTelegramLink}>
-                    {waitingForTelegram ? <SpinnerIcon size={16} className="spin" /> : <SendIcon size={16} />}
-                    {waitingForTelegram ? "Telegramda «Start» ni bosing…" : "Telegramni ulash"}
-                  </button>
-                  {blockedLinkUrl && (
-                    <a className="telegram-fallback" href={blockedLinkUrl} target="_blank" rel="noopener noreferrer">
-                      Telegram ochilmadimi? Shu yerni bosing.
-                    </a>
-                  )}
-                </div>
-              )
-            )}
-          </section>
+            </span>
+            <span className="account-gear" aria-hidden="true">
+              <SettingsIcon size={18} />
+            </span>
+          </Link>
         )}
 
         <section className="basemap" aria-labelledby="bm-label">

@@ -92,6 +92,13 @@ def create_password_user(db: Session, username: str, password: str) -> User | No
     return user
 
 
+def set_display_name(db: Session, user: User, name: str) -> User:
+    """Change the name that the app shows for the user. The username for login does not change."""
+    user.display_name = name
+    db.commit()
+    return user
+
+
 def authenticate(db: Session, username: str, password: str) -> User | None:
     user = db.scalar(select(User).where(User.username == normalize_username(username)))
     if user is None or user.password_hash is None:
@@ -118,7 +125,8 @@ def _find_or_create_telegram_user(db: Session, identity: TelegramIdentity) -> Us
         db.flush()
         _claim_unowned_fields(db, user)
     user.telegram_username = identity.username
-    user.display_name = identity.full_name
+    # The Telegram name fills an empty name only. A name the user set in the settings stays.
+    user.display_name = user.display_name or identity.full_name
     return user
 
 

@@ -25,6 +25,11 @@ class RegisterRequest(BaseModel):
     password: Password
 
 
+class ProfileUpdate(BaseModel):
+    # Spaces at the ends are removed. An empty name is refused: the app always shows a name.
+    display_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
+
+
 class LoginRequest(BaseModel):
     # No format rules here: a wrong value only gives "invalid username or password".
     username: str
@@ -42,7 +47,8 @@ class UserRead(BaseModel):
 
     @classmethod
     def from_user(cls, user: User) -> "UserRead":
-        name = user.username or user.display_name or user.telegram_username or f"#{user.id}"
+        # A name set by the user (or taken from Telegram) comes before the login.
+        name = user.display_name or user.username or user.telegram_username or f"#{user.id}"
         return cls(
             id=user.id,
             username=user.username,
