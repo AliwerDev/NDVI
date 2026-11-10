@@ -6,22 +6,23 @@ from collections.abc import Callable
 
 from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.types import Message
+from aiogram.types import BotCommand, Message
 
 from app.bot import messages
-from app.bot.subscriptions import confirm_login, link_with_code, list_user_fields, parse_start_payload
+from app.bot.subscriptions import confirm_login, link_with_code, list_user_fields, parse_start_payload, user_weather
 from app.config import get_settings
 from app.db import SessionLocal
 from app.services.auth import TelegramIdentity
+from app.services.weather import local_today
 
 logger = logging.getLogger(__name__)
 router = Router()
 
 
-async def _run_db(func: Callable[..., str], *args: object) -> str:
+async def _run_db[T](func: Callable[..., T], *args: object) -> T:
     """Run a sync database function in a worker thread, so the bot event loop does not block."""
 
-    def call() -> str:
+    def call() -> T:
         with SessionLocal() as db:
             return func(db, *args)
 
@@ -59,6 +60,16 @@ async def handle_fields(message: Message) -> None:
     await message.answer(await _run_db(list_user_fields, identity.id))
 
 
+@router.message(Command("weather"))
+async def handle_weather(message: Message) -> None:
+    identity = _identity(message)
+    if identity is None:
+        await message.answer(messages.NO_FIELDS)
+        return
+    for part in await _run_db(user_weather, identity.id, local_today()):
+        await message.answer(part)
+
+
 async def run() -> None:
     settings = get_settings()
     if not settings.telegram_bot_token:
@@ -67,6 +78,8 @@ async def run() -> None:
     bot = Bot(settings.telegram_bot_token)
     dispatcher = Dispatcher()
     dispatcher.include_router(router)
+    # The menu comes from the code, so a new command appears in Telegram after a restart.
+    await bot.set_my_commands([BotCommand(command=name, description=text) for name, text in messages.COMMANDS])
     logger.info("Bot started")
     await dispatcher.start_polling(bot)
 

@@ -1,6 +1,16 @@
 """User-facing bot texts in Uzbek (Latin script)."""
 
-from datetime import date
+from datetime import date, timedelta
+
+# Telegram does not send a longer message.
+MESSAGE_LIMIT = 4096
+
+# The bot menu. The bot sends this list to Telegram when it starts.
+COMMANDS = (
+    ("start", "Bot haqida va qanday ulanish"),
+    ("fields", "Maydonlarim va oxirgi NDVI"),
+    ("weather", "Ob-havo prognozi va maslahatlar"),
+)
 
 WELCOME = (
     "Assalomu alaykum! 🌱\n\n"
@@ -10,8 +20,11 @@ WELCOME = (
     "• NDRE (xlorofill) azot yetishmasligini koʻrsatsa.\n\n"
     "Saytga Telegram orqali kiring yoki saytda «Telegramni ulash» tugmasini bosing. "
     "Shundan keyin barcha maydonlaringiz boʻyicha ogohlantirishlar shu chatga keladi.\n\n"
-    "/fields — maydonlaringiz va oxirgi NDVI"
+    "/fields — maydonlaringiz va oxirgi NDVI\n"
+    "/weather — ob-havo prognozi, sugʻorish va purkash maslahati"
 )
+
+NO_FORECAST = "Prognoz hali yoʻq. Birozdan keyin qayta urinib koʻring."
 
 NO_FIELDS = "Bu Telegram hisobiga ulangan maydon yoʻq. Saytga Telegram orqali kiring yoki «Telegramni ulash» tugmasini bosing."
 
@@ -161,6 +174,56 @@ def heat_alert(field_name: str, first: date, last: date, t_max: float, threshold
 
 def irrigation_line(text: str) -> str:
     return f"💧 Sugʻorish: {text}"
+
+
+def forecast_day_line(
+    day: date,
+    today: date,
+    t_min: float | None,
+    t_max: float | None,
+    precipitation: float | None,
+    wind_max: float | None,
+    frost_threshold: float,
+    heat_threshold: float,
+) -> str:
+    """One forecast day of /weather. Frost and heat days get a mark, with the same rule as the alerts."""
+    label = day.strftime("%d.%m")
+    if day == today:
+        label = f"Bugun, {label}"
+    elif day == today + timedelta(days=1):
+        label = f"Ertaga, {label}"
+
+    values = []
+    if t_min is not None and t_max is not None:
+        values.append(f"{t_min:.0f}…{t_max:.0f} °C")
+    if precipitation is not None:
+        values.append(f"yogʻin {precipitation:.0f} mm")
+    if wind_max is not None:
+        values.append(f"shamol {wind_max:.0f} m/s")
+
+    marks = ""
+    if t_min is not None and t_min <= frost_threshold:
+        marks += " ❄️ sovuq"
+    if t_max is not None and t_max >= heat_threshold:
+        marks += " 🔥 jazirama"
+    return f"{label}: {', '.join(values) or 'maʼlumot yoʻq'}{marks}"
+
+
+def field_weather(field_name: str, day_lines: list[str], advice_lines: list[str]) -> str:
+    """The /weather block of one field: the forecast days, then the irrigation and spray advice."""
+    forecast = "\n".join(day_lines) if day_lines else NO_FORECAST
+    return "\n\n".join([f"🌦 «{field_name}» ob-havosi\n\n{forecast}", *advice_lines])
+
+
+def split_messages(blocks: list[str], limit: int = MESSAGE_LIMIT) -> list[str]:
+    """Join the blocks into as few messages as possible. A block is never cut, unless it is longer than the limit."""
+    parts: list[str] = []
+    for block in blocks:
+        if parts and len(parts[-1]) + 2 + len(block) <= limit:
+            parts[-1] += "\n\n" + block
+        else:
+            parts.append(block[:limit])
+    return parts
 
 
 def spray_line(day: date | None) -> str:
