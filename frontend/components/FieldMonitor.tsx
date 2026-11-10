@@ -16,15 +16,19 @@ import SelectedFieldCard from "@/components/monitor/SelectedFieldCard";
 import Toasts from "@/components/monitor/Toasts";
 import NdviChart from "@/components/NdviChart";
 import NdviReport from "@/components/NdviReport";
+import WeatherCard from "@/components/monitor/WeatherCard";
 import NitrogenCard from "@/components/NitrogenCard";
 import ObservationStats from "@/components/ObservationStats";
+import ObservationWeather from "@/components/ObservationWeather";
 import { ChartSkeleton, ObservationSkeleton } from "@/components/Skeletons";
 import { useBackfill } from "@/hooks/useBackfill";
 import { useFieldHistory } from "@/hooks/useFieldHistory";
 import { useFields } from "@/hooks/useFields";
+import { useFieldWeather } from "@/hooks/useFieldWeather";
 import { useOverlay } from "@/hooks/useOverlay";
 import { api, errorText, type FieldLayer, type Position } from "@/lib/api";
 import { daysAgo, formatDate, formatIndex, type IndexName, INDICES, isoDate } from "@/lib/ndvi";
+import { shiftDate } from "@/lib/weather";
 
 const BASEMAPS: { value: Basemap; label: string; Icon: typeof GlobeIcon }[] = [
   { value: "satellite", label: "Sunʼiy yoʻldosh", Icon: GlobeIcon },
@@ -51,6 +55,11 @@ export default function FieldMonitor() {
     reload: reloadHistory,
   } = useFieldHistory(selectedId, setError);
   const backfill = useBackfill(selectedId, reloadHistory, setMessage, setError);
+  // The rain bars cover the whole history and the week before its first observation.
+  // The request waits for the history, so the start date is known and there is one request.
+  const weatherStart = history.length > 0 ? shiftDate(history[0].observed_on, -7) : null;
+  const weather = useFieldWeather(historyLoading ? null : selectedId, weatherStart);
+  const weatherDays = weather.weather?.days;
 
   // The index of the chart, the selected row and the report. An index layer on the map follows it.
   const [index, setIndex] = useState<IndexName>("ndvi");
@@ -185,6 +194,12 @@ export default function FieldMonitor() {
               onBackfill={() => run(() => backfill.start(selectedField.id))}
             />
 
+            <WeatherCard
+              weather={weather.weather}
+              loading={historyLoading || weather.loading}
+              failed={weather.failed}
+            />
+
             <section className="card" aria-labelledby="ch-title">
               <div className="card-head">
                 <h2 id="ch-title">Indekslar grafigi</h2>
@@ -213,6 +228,7 @@ export default function FieldMonitor() {
                   selectedId={observation?.id ?? null}
                   onSelect={selectObservation}
                   index={index}
+                  rain={weatherDays}
                 />
               )}
             </section>
@@ -223,6 +239,7 @@ export default function FieldMonitor() {
               <section className="card" aria-labelledby="st-title">
                 <h2 id="st-title">Tanlangan kuzatuv</h2>
                 <ObservationStats observation={observation} index={index} onSelectIndex={setIndex} />
+                {weatherDays && <ObservationWeather days={weatherDays} observedOn={observation.observed_on} />}
               </section>
             )}
 
@@ -265,6 +282,7 @@ export default function FieldMonitor() {
           index={index}
           onSelectIndex={setIndex}
           onClose={closeReport}
+          weatherDays={weatherDays}
         />
       )}
     </div>

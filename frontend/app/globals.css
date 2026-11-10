@@ -1908,3 +1908,269 @@ p {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Weather card, rain bars of the chart, and the weather line of an observation */
+
+.status-info {
+  background: #e8eef7;
+  color: #1f3f6e;
+}
+
+.status-info .status-dot {
+  background: #2f5f9e;
+}
+
+.wx-skeleton {
+  height: 132px;
+  border-radius: 10px;
+}
+
+.wx-banner {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.wx-banner svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.wx-banner div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wx-banner strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wx-banner span {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.wx-banner-frost {
+  background: #e8eef7;
+  border: 1px solid #c5d3ea;
+  color: #1f3f6e;
+}
+
+.wx-banner-heat {
+  background: #fbf0d9;
+  border: 1px solid #ecd6a6;
+  color: #6e4600;
+}
+
+.wx-days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.wx-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 0;
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wx-day-heat {
+  background: #fbf0d9;
+}
+
+.wx-day-frost {
+  background: #e8eef7;
+}
+
+.wx-day-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.wx-day-date,
+.wx-day-rain {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.wx-day-max {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wx-day-heat .wx-day-max {
+  color: #6e4600;
+}
+
+.wx-day-min {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.wx-day-frost .wx-day-min {
+  font-weight: 600;
+  color: #1f3f6e;
+}
+
+.wx-day-rain-on {
+  font-weight: 600;
+  color: #1f3f6e;
+}
+
+.wx-icon-rain {
+  color: #2f5f9e;
+}
+
+.wx-icon-sun {
+  color: #b7791f;
+}
+
+.wx-icon-heat {
+  color: #8a4b00;
+}
+
+.wx-legend {
+  margin-top: -6px;
+  font-size: 11px;
+}
+
+.wx-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--sunken);
+  border-radius: 10px;
+}
+
+.wx-summary-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.wx-summary dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wx-summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wx-summary dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.wx-summary dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wx-summary dd.wx-dry {
+  color: var(--danger-text);
+}
+
+.wx-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wx-block-sep {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.wx-block-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.wx-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.wx-source {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.wx-source a {
+  color: var(--accent);
+}
+
+.wx-context {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--sunken);
+  border-radius: 10px;
+}
+
+.wx-context svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.wx-context div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wx-context-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.wx-context-text {
+  font-size: 13px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .rain-window {
+  fill: #2f5f9e;
+  fill-opacity: 0.08;
+}
+
+.chart .rain-bar {
+  fill: #2f5f9e;
+}
+
+.chart .rain-bar.active,
+.chart .rain-hit:hover .rain-bar {
+  fill: #1f3f6e;
+}
+
+.chart .rain-hit {
+  cursor: pointer;
+}
+
+.chart .rain-label {
+  font-size: 10px;
+  font-weight: 600;
+  fill: #1f3f6e;
+}

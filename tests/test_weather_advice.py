@@ -123,8 +123,10 @@ def test_endpoint_returns_advice_for_growing_field(
     body = db_client.get(f"/fields/{field.id}/weather").json()
 
     assert body["summary_7d"] == {"days": 7, "precipitation": 0.0, "et0": 49.0, "t_max": 36.0, "balance": -49.0}
+    assert body["growing"] is True
     assert body["irrigation_advice"]["level"] == "needed"
     assert body["spray_day"] == "2026-10-22"
+    assert (body["frost_threshold_c"], body["heat_threshold_c"]) == (0.0, 40.0)
 
 
 def test_endpoint_has_no_advice_for_bare_field(
@@ -135,6 +137,7 @@ def test_endpoint_has_no_advice_for_bare_field(
     body = db_client.get(f"/fields/{field.id}/weather").json()
 
     assert body["summary_7d"]["days"] == 7
+    assert body["growing"] is False
     assert body["irrigation_advice"] is None
     assert body["spray_day"] is None
 

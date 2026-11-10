@@ -5,8 +5,9 @@ import { useEffect, useRef } from "react";
 import { CloseIcon } from "@/components/icons";
 import NdviChart from "@/components/NdviChart";
 import ObservationStats from "@/components/ObservationStats";
+import ObservationWeather from "@/components/ObservationWeather";
 import IndexTabs from "@/components/IndexTabs";
-import type { FieldFeature, Observation } from "@/lib/api";
+import type { FieldFeature, Observation, WeatherDay } from "@/lib/api";
 import { formatArea } from "@/lib/geo";
 import { formatDateLong, formatIndex, INDEX_NAMES, type IndexName, indexColor, indexValues, INDICES } from "@/lib/ndvi";
 
@@ -18,10 +19,21 @@ type Props = {
   index: IndexName;
   onSelectIndex: (index: IndexName) => void;
   onClose: () => void;
+  /** Daily weather: rain bars under the chart and the week before the selected observation. */
+  weatherDays?: WeatherDay[];
 };
 
 // The report of one field in a large window: chart of one index, selected observation and all observations.
-export default function NdviReport({ field, observations, selected, onSelect, index, onSelectIndex, onClose }: Props) {
+export default function NdviReport({
+  field,
+  observations,
+  selected,
+  onSelect,
+  index,
+  onSelectIndex,
+  onClose,
+  weatherDays,
+}: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -70,8 +82,12 @@ export default function NdviReport({ field, observations, selected, onSelect, in
               <div>
                 <h3 id="report-chart-title" className="card-title">
                   Oʻrtacha {INDICES[index].label}
+                  {weatherDays && weatherDays.length > 0 && " va kunlik yogʻin"}
                 </h3>
-                <p className="meta">{INDICES[index].caption}</p>
+                <p className="meta">
+                  {INDICES[index].caption}
+                  {weatherDays && weatherDays.length > 0 && " · yogʻin Open-Meteo modelidan, taxminiy"}
+                </p>
               </div>
               <IndexTabs value={index} onChange={onSelectIndex} className="report-tabs" />
             </div>
@@ -81,7 +97,11 @@ export default function NdviReport({ field, observations, selected, onSelect, in
               onSelect={onSelect}
               index={index}
               variant="large"
+              rain={weatherDays}
             />
+            {weatherDays && weatherDays.length > 0 && (
+              <p className="meta">Yogʻin ustunini bosing — kun va yogʻin miqdori chiqadi. 20 mm dan koʻpi kesiladi.</p>
+            )}
           </section>
 
           {selected && (
@@ -90,6 +110,7 @@ export default function NdviReport({ field, observations, selected, onSelect, in
                 Tanlangan kuzatuv
               </h3>
               <ObservationStats observation={selected} index={index} onSelectIndex={onSelectIndex} longDate />
+              {weatherDays && <ObservationWeather days={weatherDays} observedOn={selected.observed_on} />}
             </section>
           )}
 

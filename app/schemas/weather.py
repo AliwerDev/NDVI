@@ -46,7 +46,8 @@ class IrrigationAdviceRead(BaseModel):
 class FieldWeatherRead(BaseModel):
     """The weather of the grid cell of a field. The page must show the source (CC BY 4.0).
 
-    irrigation_advice and spray_day are null for a field without growing plants.
+    growing is false when no recent observation shows plants. irrigation_advice and spray_day are null then.
+    The page marks forecast days at or below frost_threshold_c and at or above heat_threshold_c.
     """
 
     lat: float
@@ -54,5 +55,8 @@ class FieldWeatherRead(BaseModel):
     source: str = "Open-Meteo.com"
     days: list[WeatherDayRead]
     summary_7d: WeatherSummaryRead | None
+    growing: bool
     irrigation_advice: IrrigationAdviceRead | None
     spray_day: date | None
+    frost_threshold_c: float
+    heat_threshold_c: float

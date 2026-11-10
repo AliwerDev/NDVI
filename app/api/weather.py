@@ -53,8 +53,11 @@ def get_field_weather(
         lon=cell[1],
         days=[WeatherDayRead.model_validate(d) for d in days],
         summary_7d=WeatherSummaryRead.model_validate(advice.summary) if advice.summary is not None else None,
+        growing=advice.growing,
         irrigation_advice=(
             IrrigationAdviceRead.model_validate(advice.irrigation) if advice.irrigation is not None else None
         ),
         spray_day=advice.spray_day,
+        frost_threshold_c=settings.frost_threshold_c,
+        heat_threshold_c=settings.heat_threshold_c,
     )

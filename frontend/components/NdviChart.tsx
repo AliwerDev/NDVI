@@ -1,10 +1,16 @@
 "use client";
 
+import { useState } from "react";
+
 import { ChartIcon } from "@/components/icons";
-import type { Observation } from "@/lib/api";
+import type { Observation, WeatherDay } from "@/lib/api";
 import { formatDate, formatDateLong, formatIndex, type IndexName, indexColor, indexValues, INDICES } from "@/lib/ndvi";
+import { dayMonth, formatNumber } from "@/lib/weather";
 
 const TOOLTIP_HEIGHT = 28;
+const DAY_MS = 86_400_000;
+// Rain bars stop at this height. A heavier day still shows its value in the tooltip.
+const RAIN_MAX_MM = 20;
 
 // "compact" fits the 380 px sidebar. "large" is for the report window and shows month names.
 const LAYOUTS = {
@@ -15,6 +21,9 @@ const LAYOUTS = {
     dateTicks: 2,
     tooltipWidth: 150,
     date: formatDate,
+    // The rain band under the chart: its height and the gap above it.
+    rainBand: 34,
+    rainGap: 14,
   },
   large: {
     width: 960,
@@ -23,6 +32,8 @@ const LAYOUTS = {
     dateTicks: 6,
     tooltipWidth: 200,
     date: formatDateLong,
+    rainBand: 68,
+    rainGap: 20,
   },
 };
 
@@ -32,6 +43,8 @@ type Props = {
   onSelect: (observation: Observation) => void;
   index?: IndexName;
   variant?: keyof typeof LAYOUTS;
+  /** Daily weather. With it, daily rain shows as bars under the chart. */
+  rain?: WeatherDay[];
 };
 
 function isoFromTime(time: number): string {
@@ -43,7 +56,16 @@ function tickLabel(tick: number): string {
 }
 
 // An SVG line chart of one index (mean over the field) over time. A click on a point selects that observation.
-export default function NdviChart({ observations, selectedId, onSelect, index = "ndvi", variant = "compact" }: Props) {
+export default function NdviChart({
+  observations,
+  selectedId,
+  onSelect,
+  index = "ndvi",
+  variant = "compact",
+  rain = [],
+}: Props) {
+  // The large chart shows the value of a clicked rain bar.
+  const [rainDay, setRainDay] = useState<string | null>(null);
   const info = INDICES[index];
   // Observations from before NDMI and NDRE were added have no value for them.
   const points0 = observations.flatMap((o) => {
@@ -66,12 +88,25 @@ export default function NdviChart({ observations, selectedId, onSelect, index = 
     );
   }
 
-  const { width: WIDTH, height: HEIGHT, pad: PAD, dateTicks, tooltipWidth, date } = LAYOUTS[variant];
-  const bottom = HEIGHT - PAD.bottom;
+  const { width: WIDTH, height: BASE_HEIGHT, pad: PAD, dateTicks, tooltipWidth, date, rainBand, rainGap } = LAYOUTS[variant];
+  const bottom = BASE_HEIGHT - PAD.bottom;
   const right = WIDTH - PAD.right;
   const times = points0.map(({ o }) => new Date(o.observed_on).getTime());
   const tMin = Math.min(...times);
   const tMax = Math.max(...times);
+
+  // Rain needs a time axis, so one observation shows no band.
+  const rainDays =
+    tMax > tMin
+      ? rain.filter((d) => {
+          const t = new Date(d.day).getTime();
+          return t >= tMin && t <= tMax;
+        })
+      : [];
+  const showRain = rainDays.length > 0;
+  const HEIGHT = BASE_HEIGHT + (showRain ? rainGap + rainBand : 0);
+  const rainTop = bottom + rainGap;
+  const rainBottom = rainTop + rainBand;
   const x = (t: number) => (tMax === tMin ? (PAD.left + right) / 2 : PAD.left + ((t - tMin) / (tMax - tMin)) * (right - PAD.left));
   const y = (v: number) =>
     PAD.top + (1 - (Math.min(Math.max(v, info.min), info.max) - info.min) / (info.max - info.min)) * (bottom - PAD.top);
@@ -98,10 +133,26 @@ export default function NdviChart({ observations, selectedId, onSelect, index = 
     tooltip = { x: tx, y: above >= 0 ? above : selected.py + 14 };
   }
 
+  const dayWidth = showRain ? ((right - PAD.left) * DAY_MS) / (tMax - tMin) : 0;
+  const barWidth = Math.min(Math.max(dayWidth * 0.7, 1.2), 8);
+  const bars = rainDays.flatMap((d) => {
+    const mm = d.precipitation ?? 0;
+    if (mm <= 0) return [];
+    const h = (Math.min(mm, RAIN_MAX_MM) / RAIN_MAX_MM) * rainBand;
+    return [{ day: d.day, mm, x: x(new Date(d.day).getTime()), h }];
+  });
+  const totalRain = rainDays.reduce((sum, d) => sum + (d.precipitation ?? 0), 0);
+  // The 7 days before the selected observation: the weather that the "Tanlangan kuzatuv" card describes.
+  const windowStart = selected ? Math.max(x(new Date(selected.o.observed_on).getTime() - 7 * DAY_MS), PAD.left) : 0;
+  const rainTip = variant === "large" ? (bars.find((b) => b.day === rainDay) ?? null) : null;
+  const rainTipWidth = 180;
+  const rainTipX = rainTip ? Math.min(Math.max(rainTip.x - rainTipWidth / 2, PAD.left), right - rainTipWidth) : 0;
+
   const ariaLabel =
     `Oʻrtacha ${info.label}: ${date(first.o.observed_on)} dan ${date(last.o.observed_on)} gacha ` +
     `${points.length} ta kuzatuv.` +
-    (selected ? ` Tanlangan: ${label(selected.o, selected.value)}` : "");
+    (selected ? ` Tanlangan: ${label(selected.o, selected.value)}` : "") +
+    (showRain ? ` Shu davrda jami yogʻin ${formatNumber(totalRain)} mm.` : "");
 
   return (
     <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className={`chart chart-${variant}`} role="img" aria-label={ariaLabel}>
@@ -127,7 +178,60 @@ export default function NdviChart({ observations, selectedId, onSelect, index = 
       <path d={area} className="area" style={{ fill: info.line }} />
       <polyline points={line} className="line" style={{ stroke: info.line }} />
 
-      {selected && <line x1={selected.px} x2={selected.px} y1={selected.py + 7} y2={bottom} className="guide" />}
+      {showRain && (
+        <g className="rain">
+          {selected && (
+            <rect
+              x={windowStart}
+              y={rainTop}
+              width={Math.max(selected.px - windowStart, 0)}
+              height={rainBand}
+              className="rain-window"
+            />
+          )}
+          <line x1={PAD.left} x2={right} y1={rainTop} y2={rainTop} className="grid" />
+          <line x1={PAD.left} x2={right} y1={rainBottom} y2={rainBottom} className="axis" />
+          <text x={PAD.left - 6} y={rainTop + 3.5} textAnchor="end" className="tick">
+            {RAIN_MAX_MM}
+          </text>
+          <text x={PAD.left - 6} y={rainBottom + 3.5} textAnchor="end" className="tick">
+            0
+          </text>
+          <text x={right} y={rainTop - 4} textAnchor="end" className="rain-label">
+            Yogʻin, mm/kun
+          </text>
+          {bars.map((b) => (
+            <g
+              key={b.day}
+              className={variant === "large" ? "rain-hit" : undefined}
+              onClick={variant === "large" ? () => setRainDay(b.day) : undefined}
+            >
+              {variant === "large" && (
+                <rect x={b.x - dayWidth / 2} y={rainTop} width={Math.max(dayWidth, 4)} height={rainBand} fill="transparent" />
+              )}
+              <rect
+                x={b.x - barWidth / 2}
+                y={rainBottom - b.h}
+                width={barWidth}
+                height={b.h}
+                rx={barWidth > 3 ? 1 : 0}
+                className={b.day === rainTip?.day ? "rain-bar active" : "rain-bar"}
+              />
+              <title>{`${dayMonth(b.day)}: ${formatNumber(b.mm)} mm`}</title>
+            </g>
+          ))}
+        </g>
+      )}
+
+      {selected && (
+        <line
+          x1={selected.px}
+          x2={selected.px}
+          y1={selected.py + 7}
+          y2={showRain ? rainBottom : bottom}
+          className="guide"
+        />
+      )}
 
       {points.map(({ o, value, px, py }) =>
         o.id === selectedId ? null : (
@@ -157,6 +261,15 @@ export default function NdviChart({ observations, selectedId, onSelect, index = 
           <rect x={tooltip.x} y={tooltip.y} width={tooltipWidth} height={TOOLTIP_HEIGHT} rx={6} />
           <text x={tooltip.x + tooltipWidth / 2} y={tooltip.y + 18.5} textAnchor="middle">
             {label(selected.o, selected.value)}
+          </text>
+        </g>
+      )}
+
+      {rainTip && (
+        <g className="tooltip">
+          <rect x={rainTipX} y={rainTop - 8 - TOOLTIP_HEIGHT} width={rainTipWidth} height={TOOLTIP_HEIGHT} rx={6} />
+          <text x={rainTipX + rainTipWidth / 2} y={rainTop - 8 - TOOLTIP_HEIGHT + 18.5} textAnchor="middle">
+            {`${dayMonth(rainTip.day)}: yogʻin ${formatNumber(rainTip.mm)} mm`}
           </text>
         </g>
       )}

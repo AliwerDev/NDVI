@@ -223,3 +223,32 @@ export const AreaIcon = icon(
     <path d="M4 9h3M4 14h3M9 4v3M14 4v3" />
   </>,
 );
+
+export const CloudSunIcon = icon(
+  <>
+    <path d="M12 2v2M4.9 4.9l1.4 1.4M20 12h2M19.1 4.9l-1.4 1.4M15.9 13A4 4 0 0 0 8.3 10.6" />
+    <path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z" />
+  </>,
+);
+
+export const SunIcon = icon(
+  <>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+  </>,
+);
+
+export const CloudRainIcon = icon(
+  <>
+    <path d="M20 16.6A5 5 0 0 0 18 7h-1.3A8 8 0 1 0 4 15.3" />
+    <path d="M8 19v2M12 17v4M16 19v2" />
+  </>,
+);
+
+export const SnowflakeIcon = icon(<path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 2 3-2M9 20l3-2 3 2" />);
+
+export const ThermometerIcon = icon(<path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0Z" />);
+
+export const WindIcon = icon(
+  <path d="M9.6 4.6A2 2 0 1 1 11 8H2M12.6 19.4A2 2 0 1 0 14 16H2M17.5 8a2.5 2.5 0 1 1 2 4H2" />,
+);

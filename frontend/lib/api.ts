@@ -60,6 +60,39 @@ export type BackfillJob = {
   finished_at: string | null;
 };
 
+/** One day of the weather. °C, mm and m/s. is_forecast: today and later, or a day that was not updated yet. */
+export type WeatherDay = {
+  day: string;
+  t_max: number | null;
+  t_min: number | null;
+  precipitation: number | null;
+  et0: number | null;
+  wind_max: number | null;
+  is_forecast: boolean;
+};
+
+/** Irrigation advice from the 7-day water balance (ET0 minus rain) and NDMI. */
+export type IrrigationAdvice = {
+  level: "needed" | "wait_rain" | "ok";
+  text: string;
+  deficit_mm: number;
+  forecast_rain_mm: number;
+};
+
+/** The weather of the field's grid cell (about 10 km). growing false: no advice for a bare field. */
+export type FieldWeather = {
+  lat: number;
+  lon: number;
+  source: string;
+  days: WeatherDay[];
+  summary_7d: { days: number; precipitation: number; et0: number; t_max: number | null; balance: number } | null;
+  growing: boolean;
+  irrigation_advice: IrrigationAdvice | null;
+  spray_day: string | null;
+  frost_threshold_c: number;
+  heat_threshold_c: number;
+};
+
 /** What the map shows inside the selected field: index colors or the true color satellite image. */
 export type FieldLayer = "ndvi" | "ndmi" | "ndre" | "rgb";
 
@@ -153,6 +186,10 @@ export const api = {
   backfillStatus: (id: number) => request<BackfillJob | null>(`/fields/${id}/ndvi/backfill`),
 
   history: (id: number) => request<Observation[]>(`/fields/${id}/ndvi`),
+
+  // Past days from `start` (default: 30 days ago) and the forecast, with today's advice.
+  weather: (id: number, start?: string) =>
+    request<FieldWeather>(`/fields/${id}/weather${start ? `?start=${start}` : ""}`),
 
   // The bot username. null when the bot is off or Telegram is unreachable.
   telegramBot: () => request<{ username: string | null }>("/telegram/bot").then((info) => info.username),
