@@ -84,6 +84,13 @@ def test_no_spray_day_in_rainy_windy_week() -> None:
     assert spray_day(_forecast((5.0, 2.0), (0.0, 9.0)), SETTINGS) is None
 
 
+def test_heat_day_is_not_a_spray_day() -> None:
+    days = _forecast((0.0, 2.0), (0.0, 2.0))
+    days[0].t_max = 42.0
+
+    assert spray_day(days, SETTINGS) == TODAY + timedelta(days=1)
+
+
 # --- endpoint and Telegram ---
 
 

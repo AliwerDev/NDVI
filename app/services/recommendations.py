@@ -110,13 +110,17 @@ def forecast_rain(days: Sequence[WeatherDay], count: int = 3) -> float:
 
 
 def spray_day(days: Sequence[WeatherDay], settings: Settings) -> date | None:
-    """The first forecast day without rain and strong wind, for spraying or fertilizing. None if there is none."""
+    """The first forecast day without rain, strong wind and heat, for spraying or fertilizing. None if there is none.
+
+    On a heat day the spray dries before the leaves take it up, so the heat warning tells the farmer to wait.
+    """
     for d in days:
         if (
             d.precipitation is not None
             and d.wind_max is not None
             and d.precipitation < settings.spray_max_rain_mm
             and d.wind_max < settings.spray_max_wind
+            and (d.t_max is None or d.t_max < settings.heat_threshold_c)
         ):
             return d.day
     return None
