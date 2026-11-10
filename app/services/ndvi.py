@@ -2,6 +2,7 @@
 
 import logging
 import math
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -240,14 +241,25 @@ def compute_field_ndvi_series(
     end: date,
     data_dir: Path | None = None,
 ) -> list[FieldNdvi]:
-    """Compute NDVI for every clear scene in [start, end], newest first, at most one per date.
+    """Compute NDVI for every clear scene in [start, end], newest first, at most one per date."""
+    return list(iter_field_ndvi_series(field_id, polygon, start, end, data_dir))
 
-    Only the newest MAX_BACKFILL_SCENES scenes are read. A scene that fails to read is skipped.
+
+def iter_field_ndvi_series(
+    field_id: int,
+    polygon: BaseGeometry,
+    start: date,
+    end: date,
+    data_dir: Path | None = None,
+) -> Iterator[FieldNdvi]:
+    """Yield the NDVI of each clear scene in [start, end] as soon as it is computed.
+
+    Newest first, at most one per date. Only the newest MAX_BACKFILL_SCENES scenes are read.
+    A scene that fails to read is skipped.
     """
     if data_dir is None:
         data_dir = Path(get_settings().data_dir)
 
-    results: list[FieldNdvi] = []
     done_dates: set[date] = set()
     for scene in find_scenes(polygon, start, end)[:MAX_BACKFILL_SCENES]:
         day = scene.datetime.date()
@@ -260,6 +272,5 @@ def compute_field_ndvi_series(
             logger.warning("Could not read scene %s, skipped", scene.id, exc_info=True)
             continue
         if result is not None:
-            results.append(result)
             done_dates.add(day)
-    return results
+            yield result

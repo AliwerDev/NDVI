@@ -106,7 +106,7 @@ Open http://localhost:3000. The home page explains NDVI in simple Uzbek. The map
 1. Click **Yangi maydon chizish** and click the corners of the field on the map.
 2. Type a name and click **Saqlash**.
 3. Click **NDVI hisoblash (30 kun)** to compute NDVI for the newest clear scene.
-4. Click **Mavsum tarixini yuklash** to fill the chart from 1 March. This job runs in the background for 1–3 minutes.
+4. Click **Mavsum tarixini yuklash** to fill the chart from 1 March. This job runs in the background for 1–3 minutes. While it runs, the button shows a spinner and the number of saved observations. The page checks the job every 3 seconds and adds each new observation to the chart.
 5. Click a point on the chart to show the NDVI map of that date.
 
 If the API does not run on `http://localhost:8000`, copy `frontend/.env.example` to `frontend/.env.local` and change `NEXT_PUBLIC_API_URL`. Add the frontend address to `CORS_ORIGINS` in `.env`.
@@ -191,7 +191,8 @@ All endpoints except `/health`, `/auth/register`, `/auth/login`, `/auth/telegram
 | `GET` | `/fields/{id}/scenes/best?start=&end=` | Returns the newest usable Sentinel-2 scene. |
 | `POST` | `/fields/{id}/ndvi?start=&end=` | Computes NDVI for the newest clear scene, saves a COG, and stores the observation. |
 | `GET` | `/fields/{id}/ndvi?start=&end=` | Returns the NDVI time series. `start` and `end` are optional. |
-| `POST` | `/fields/{id}/ndvi/backfill?start=&end=` | Fills the history in the background (202). |
+| `POST` | `/fields/{id}/ndvi/backfill?start=&end=` | Starts a background job that fills the history (202). Returns the job. `409` if a job already runs for the field. |
+| `GET` | `/fields/{id}/ndvi/backfill` | Returns the newest job: `status` (`running`, `done`, `failed`) and `saved_count`. `null` if the field has no jobs. |
 | `GET` | `/observations/{id}/image` | Returns the PNG URL and its lon/lat bounds. |
 | `GET` | `/observations/{id}/image.png` | Returns the NDVI map as a colored PNG. |
 | `GET` | `/telegram/bot` | Returns the bot username for the deep link, or `null`. |
@@ -269,6 +270,7 @@ data/            NDVI COG files (not in git)
 - **Token in localStorage.** A script that runs on the page (XSS) can read the session token. An HttpOnly cookie is safer, but it needs the frontend and the API on the same site.
 - **No password reset.** A user who forgets the password and has no linked Telegram account cannot sign in.
 - **Old files stay.** When you delete a field, its COG files stay in `data/`.
+- **Backfill after an API restart.** A backfill job runs inside the API process. If the API restarts, the job stops, but its status stays `running`. After 10 minutes without a saved observation, the API shows the job as `failed`, and the user can start a new job.
 - **Alert delivery.** An alert is marked as sent after one delivery attempt, also if Telegram fails. An alert of an owner without Telegram is also marked as sent, so linking Telegram later does not send old alerts.
 - **Map tiles.** The OpenStreetMap and Esri World Imagery tiles are for development only. For production, use a tile provider with a license for your use.
 - **No pagination.** `GET /fields` returns all fields.

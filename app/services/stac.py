@@ -13,6 +13,8 @@ from app.config import get_settings
 
 # Asset keys on Planetary Computer: B04 = red, B08 = near infrared, SCL = scene classification.
 REQUIRED_ASSETS = ("B04", "B08", "SCL")
+# True color: B04 = red, B03 = green, B02 = blue.
+RGB_ASSETS = ("B04", "B03", "B02")
 
 
 @dataclass(frozen=True)
@@ -87,6 +89,23 @@ def pick_best_scene(
     """Return the newest usable scene, or None."""
     scenes = rank_scenes(items, polygon, max_cloud_cover)
     return scenes[0] if scenes else None
+
+
+def get_scene(scene_id: str, asset_keys: tuple[str, ...] = RGB_ASSETS) -> Scene | None:
+    """Return the scene with this id and the given assets, or None if the STAC API does not know it."""
+    settings = get_settings()
+    client = Client.open(settings.stac_api_url)
+    items = list(client.search(collections=[settings.stac_collection], ids=[scene_id], max_items=1).items())
+    if not items or items[0].datetime is None or not all(key in items[0].assets for key in asset_keys):
+        return None
+    item = items[0]
+    return Scene(
+        id=item.id,
+        datetime=item.datetime,
+        cloud_cover=item.properties.get("eo:cloud_cover", 0.0),
+        assets={key: item.assets[key].href for key in asset_keys},
+        processing_baseline=item.properties.get("s2:processing_baseline"),
+    )
 
 
 def find_scenes(

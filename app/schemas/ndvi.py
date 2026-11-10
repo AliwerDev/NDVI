@@ -1,6 +1,7 @@
 """Pydantic schemas for NDVI observations."""
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -23,10 +24,16 @@ class ObservationRead(BaseModel):
     created_at: datetime
 
 
-class BackfillStarted(BaseModel):
-    """Response of the backfill endpoint. The work continues in the background."""
+class BackfillJobRead(BaseModel):
+    """A background job that fills the NDVI history. saved_count grows while the job runs."""
 
-    status: str = "started"
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
     field_id: int
+    status: Literal["running", "done", "failed"]
     start: date
     end: date
+    saved_count: int
+    created_at: datetime
+    finished_at: datetime | None

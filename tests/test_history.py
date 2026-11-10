@@ -79,12 +79,14 @@ def test_deleting_field_deletes_observations(db_session: Session, field: Field) 
 
 def test_backfill_saves_everymake_result(db_session: Session, field: Field, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        history, "compute_field_ndvi_series", lambda *args, **kwargs: [make_result(20, 0.6), make_result(10, 0.5)]
+        history, "iter_field_ndvi_series", lambda *args, **kwargs: iter([make_result(20, 0.6), make_result(10, 0.5)])
     )
+    saved: list[NdviObservation] = []
 
-    observations = backfill_field(db_session, field, date(2026, 10, 1), date(2026, 10, 31))
+    observations = backfill_field(db_session, field, date(2026, 10, 1), date(2026, 10, 31), on_saved=saved.append)
 
     assert len(observations) == 2
+    assert saved == observations
     assert [o.observed_on.day for o in list_observations(db_session, field.id)] == [10, 20]
 
 
@@ -122,5 +124,7 @@ def test_backfill_endpoint_starts_background_job(db_client: TestClient, monkeypa
     response = db_client.post(f"/fields/{field_id}/ndvi/backfill?start=2026-04-01&end=2026-10-31")
 
     assert response.status_code == 202
-    assert response.json()["status"] == "started"
-    assert calls == [(field_id, date(2026, 4, 1), date(2026, 10, 31))]
+    body = response.json()
+    assert body["status"] == "running"
+    assert body["saved_count"] == 0
+    assert calls == [(body["id"],)]

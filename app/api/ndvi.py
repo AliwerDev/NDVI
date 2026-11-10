@@ -11,9 +11,10 @@ from rasterio.errors import RasterioIOError
 from app.api.deps import CurrentUser, DbSession
 from app.api.fields import get_field_or_404
 from app.db import SessionLocal
-from app.models import Field
-from app.schemas.ndvi import BackfillStarted, ObservationRead
-from app.services.history import backfill_field, list_observations, save_observation
+from app.models import BackfillJob
+from app.schemas.ndvi import BackfillJobRead, ObservationRead
+from app.services.backfill import BackfillAlreadyRunningError, latest_job, run_job, start_job, status_of
+from app.services.history import list_observations, save_observation
 from app.services.ndvi import NoClearSceneError, compute_field_ndvi
 
 logger = logging.getLogger(__name__)
@@ -61,26 +62,36 @@ def get_field_ndvi_history(
     return [ObservationRead.model_validate(o) for o in list_observations(db, field_id, start, end)]
 
 
-def run_backfill(field_id: int, start: date, end: date) -> None:
+def run_backfill(job_id: int) -> None:
     """Background job. It uses its own session, because the request session closes after the response."""
     with SessionLocal() as db:
-        field = db.get(Field, field_id)
-        if field is None:
-            return
-        try:
-            observations = backfill_field(db, field, start, end)
-        except Exception:
-            logger.exception("Backfill failed for field %s", field_id)
-            return
-        logger.info("Backfill for field %s saved %d observations", field_id, len(observations))
+        run_job(db, job_id)
+
+
+def _job_read(job: BackfillJob) -> BackfillJobRead:
+    return BackfillJobRead.model_validate(job).model_copy(update={"status": status_of(job)})
 
 
 @router.post("/{field_id}/ndvi/backfill", status_code=status.HTTP_202_ACCEPTED)
 def start_backfill(
     field_id: int, start: date, end: date, user: CurrentUser, db: DbSession, background_tasks: BackgroundTasks
-) -> BackfillStarted:
-    """Start filling the NDVI history for [start, end] in the background. Reload the history later."""
+) -> BackfillJobRead:
+    """Start filling the NDVI history for [start, end] in the background. Poll GET for the progress."""
     _check_date_range(start, end)
     get_field_or_404(db, field_id, user)
-    background_tasks.add_task(run_backfill, field_id, start, end)
-    return BackfillStarted(field_id=field_id, start=start, end=end)
+    try:
+        job = start_job(db, field_id, start, end)
+    except BackfillAlreadyRunningError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="A backfill is already running for this field"
+        ) from exc
+    background_tasks.add_task(run_backfill, job.id)
+    return _job_read(job)
+
+
+@router.get("/{field_id}/ndvi/backfill")
+def get_backfill(field_id: int, user: CurrentUser, db: DbSession) -> BackfillJobRead | None:
+    """Return the newest backfill job of the field, or null if it never had one."""
+    get_field_or_404(db, field_id, user)
+    job = latest_job(db, field_id)
+    return _job_read(job) if job is not None else None

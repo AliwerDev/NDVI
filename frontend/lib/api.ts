@@ -32,6 +32,21 @@ export type Observation = {
   created_at: string;
 };
 
+// A background job that fills the NDVI history. saved_count grows while the job runs.
+export type BackfillJob = {
+  id: number;
+  field_id: number;
+  status: "running" | "done" | "failed";
+  start: string;
+  end: string;
+  saved_count: number;
+  created_at: string;
+  finished_at: string | null;
+};
+
+/** What the map shows inside the selected field: NDVI colors or the true color satellite image. */
+export type FieldLayer = "ndvi" | "rgb";
+
 export type ObservationImage = {
   url: string;
   bounds: [number, number, number, number]; // west, south, east, north
@@ -106,8 +121,12 @@ export const api = {
   computeNdvi: (id: number, start: string, end: string) =>
     request<Observation>(`/fields/${id}/ndvi?start=${start}&end=${end}`, { method: "POST" }),
 
+  // 409 if the field already has a running job.
   startBackfill: (id: number, start: string, end: string) =>
-    request<unknown>(`/fields/${id}/ndvi/backfill?start=${start}&end=${end}`, { method: "POST" }),
+    request<BackfillJob>(`/fields/${id}/ndvi/backfill?start=${start}&end=${end}`, { method: "POST" }),
+
+  // The newest backfill job of the field, or null if it never had one.
+  backfillStatus: (id: number) => request<BackfillJob | null>(`/fields/${id}/ndvi/backfill`),
 
   history: (id: number) => request<Observation[]>(`/fields/${id}/ndvi`),
 
@@ -134,8 +153,9 @@ export const api = {
   telegramLoginPoll: (pollToken: string) =>
     request<TelegramPoll>("/auth/telegram/poll", { method: "POST", body: JSON.stringify({ poll_token: pollToken }) }),
 
-  observationImage: (id: number) =>
-    request<ObservationImage>(`/observations/${id}/image`).then((image) => ({
+  // The first "rgb" request for an observation reads the scene from the satellite archive: a few seconds.
+  observationImage: (id: number, layer: FieldLayer = "ndvi") =>
+    request<ObservationImage>(`/observations/${id}/image?layer=${layer}`).then((image) => ({
       ...image,
       url: `${API_URL}${image.url}`,
     })),

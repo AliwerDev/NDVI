@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   ActivityIcon,
@@ -13,6 +13,7 @@ import {
   FieldsIcon,
   GlobeIcon,
   HistoryIcon,
+  ImageIcon,
   LogoutIcon,
   MapIcon,
   PlusIcon,
@@ -29,7 +30,10 @@ import NdviReport from "@/components/NdviReport";
 import ObservationStats from "@/components/ObservationStats";
 import {
   api,
+  ApiError,
+  type BackfillJob,
   type FieldFeature,
+  type FieldLayer,
   type Observation,
   type ObservationImage,
   type Position,
@@ -43,14 +47,18 @@ const BASEMAPS: { value: Basemap; label: string; Icon: typeof GlobeIcon }[] = [
   { value: "osm", label: "OpenStreetMap", Icon: MapIcon },
 ];
 
+const LAYERS: { value: FieldLayer; label: string }[] = [
+  { value: "ndvi", label: "NDVI" },
+  { value: "rgb", label: "Rangli rasm" },
+];
+
 // The legend puts each color stop on a −0.2…0.9 bar.
 const RAMP = `linear-gradient(to right, ${NDVI_STOPS.map(
   ([value, color]) => `${color} ${(((value + 0.2) / 1.1) * 100).toFixed(2)}%`,
 ).join(", ")})`;
 
-// After a backfill starts, reload the history every 10 s for 3 minutes.
-const POLL_INTERVAL_MS = 10_000;
-const POLL_COUNT = 18;
+// While a backfill job runs: check its status every 3 s.
+const BACKFILL_POLL_MS = 3_000;
 
 // While the user links Telegram: check the account every 3 s, for as long as the code lives (10 min).
 const TELEGRAM_CHECK_MS = 3_000;
@@ -62,6 +70,9 @@ export default function FieldMonitor() {
   const [history, setHistory] = useState<Observation[]>([]);
   const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
   const [overlay, setOverlay] = useState<ObservationImage | null>(null);
+  // Farmers ask for the plain picture first, so the true color image is the default layer.
+  const [layer, setLayer] = useState<FieldLayer>("rgb");
+  const [overlayLoading, setOverlayLoading] = useState(false);
   const [basemap, setBasemap] = useState<Basemap>("satellite");
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
 
@@ -84,14 +95,11 @@ export default function FieldMonitor() {
   const [computing, setComputing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [backfillJob, setBackfillJob] = useState<BackfillJob | null>(null);
 
   const selectedField = fields.find((field) => field.id === selectedId) ?? null;
-
-  const stopPolling = () => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = null;
-  };
+  // The field check drops a late response for a field that is no longer selected.
+  const backfillRunning = backfillJob?.status === "running" && backfillJob.field_id === selectedId;
 
   // Run an API action, show its error, and keep the buttons disabled while it runs.
   const run = useCallback(async (action: () => Promise<void>) => {
@@ -119,7 +127,6 @@ export default function FieldMonitor() {
 
   useEffect(() => {
     run(loadFields);
-    return stopPolling;
   }, [run, loadFields]);
 
   useEffect(() => {
@@ -160,7 +167,6 @@ export default function FieldMonitor() {
 
   // When the field changes: load its history and show the newest NDVI image.
   useEffect(() => {
-    stopPolling();
     setHistory([]);
     setSelectedObservation(null);
     setOverlay(null);
@@ -173,19 +179,93 @@ export default function FieldMonitor() {
     });
   }, [selectedId, run, loadHistory]);
 
+  // A job can already run for this field: started in another tab, or before a page reload.
   useEffect(() => {
-    if (!selectedObservation) return;
+    setBackfillJob(null);
+    if (selectedId === null) return;
     let cancelled = false;
     api
-      .observationImage(selectedObservation.id)
-      .then((image) => {
-        if (!cancelled) setOverlay(image);
+      .backfillStatus(selectedId)
+      .then((job) => {
+        if (!cancelled) setBackfillJob(job);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [selectedObservation]);
+  }, [selectedId]);
+
+  // While the job runs: check its status, and reload the chart when it saved new observations.
+  // setTimeout (not setInterval), so a slow response does not overlap with the next check.
+  useEffect(() => {
+    if (!backfillRunning || selectedId === null) return;
+    const fieldId = selectedId;
+    let cancelled = false;
+    let lastSaved = -1;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const check = async () => {
+      try {
+        const job = await api.backfillStatus(fieldId);
+        if (cancelled || job === null) return;
+        const finished = job.status !== "running";
+        if (finished || job.saved_count !== lastSaved) {
+          lastSaved = job.saved_count;
+          const observations = await api.history(fieldId);
+          if (cancelled) return;
+          setHistory(observations);
+          if (observations.length > 0) {
+            setSelectedObservation((current) => current ?? observations[observations.length - 1]);
+          }
+        }
+        setBackfillJob(job);
+        if (job.status === "done") {
+          setMessage(
+            job.saved_count > 0
+              ? `Mavsum tarixi yuklandi: ${job.saved_count} ta kuzatuv.`
+              : "Yangi tiniq sahna topilmadi. Grafik oʻzgarmadi.",
+          );
+        } else if (job.status === "failed") {
+          setError("Mavsum tarixini yuklab boʻlmadi. Keyinroq qayta urinib koʻring.");
+        }
+        if (finished) return;
+      } catch {
+        // A network error: try again at the next check.
+      }
+      if (!cancelled) timer = setTimeout(check, BACKFILL_POLL_MS);
+    };
+
+    timer = setTimeout(check, BACKFILL_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [backfillRunning, selectedId]);
+
+  // The old image stays on the map until the new one is ready, so the field does not flash empty.
+  useEffect(() => {
+    if (!selectedObservation) return;
+    let cancelled = false;
+    setOverlayLoading(true);
+    api
+      .observationImage(selectedObservation.id, layer)
+      .then((image) => {
+        if (!cancelled) setOverlay(image);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Without this the map keeps the image of the other layer under the new switch position.
+        setOverlay(null);
+        const reason = err instanceof Error ? err.message : String(err);
+        setError(layer === "rgb" ? `Rangli rasmni olib boʻlmadi. ${reason}` : reason);
+      })
+      .finally(() => {
+        if (!cancelled) setOverlayLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedObservation, layer]);
 
   // Selecting a field ends the drawing mode.
   const selectField = (id: number) => {
@@ -283,15 +363,14 @@ export default function FieldMonitor() {
     if (!selectedField) return;
     const fieldId = selectedField.id;
     run(async () => {
-      await api.startBackfill(fieldId, seasonStart(), isoDate(new Date()));
-      stopPolling();
-      let count = 0;
-      pollRef.current = setInterval(() => {
-        count += 1;
-        loadHistory(fieldId).catch(() => undefined);
-        if (count >= POLL_COUNT) stopPolling();
-      }, POLL_INTERVAL_MS);
-      setMessage("Mavsum tarixi fonda yuklanmoqda. Grafik 1–3 daqiqada toʻladi.");
+      try {
+        setBackfillJob(await api.startBackfill(fieldId, seasonStart(), isoDate(new Date())));
+        setMessage("Mavsum tarixi fonda yuklanmoqda. Grafik yangi kuzatuvlar bilan toʻlib boradi.");
+      } catch (err) {
+        // 409: a job already runs for this field (for example, from another tab). Follow that job.
+        if (!(err instanceof ApiError && err.status === 409)) throw err;
+        setBackfillJob(await api.backfillStatus(fieldId));
+      }
     });
   };
 
@@ -486,9 +565,19 @@ export default function FieldMonitor() {
                   {computing ? <SpinnerIcon size={16} className="spin" /> : <ActivityIcon size={16} />}
                   {computing ? "Kuting…" : "NDVI hisoblash (30 kun)"}
                 </button>
-                <button type="button" className="btn btn-outline" onClick={backfill} disabled={busy}>
-                  <HistoryIcon size={16} />
-                  Mavsum tarixini yuklash
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={backfill}
+                  disabled={busy || backfillRunning}
+                  aria-busy={backfillRunning}
+                >
+                  {backfillRunning ? <SpinnerIcon size={16} className="spin" /> : <HistoryIcon size={16} />}
+                  {backfillRunning
+                    ? backfillJob?.saved_count
+                      ? `Yuklanmoqda… ${backfillJob.saved_count} ta saqlandi`
+                      : "Yuklanmoqda…"
+                    : "Mavsum tarixini yuklash"}
                 </button>
                 <button
                   type="button"
@@ -584,21 +673,64 @@ export default function FieldMonitor() {
           )}
         </div>
 
-        <div className="legend" role="group" aria-label="NDVI shkalasi">
+        <section className="legend" aria-labelledby="layer-label">
           <div className="legend-head">
-            <span>NDVI</span>
-            <span>Sentinel-2</span>
+            <span id="layer-label">Maydon qatlami</span>
+            {selectedObservation && <span>{formatDate(selectedObservation.observed_on)}</span>}
           </div>
-          <div className="ramp" aria-hidden="true" style={{ background: RAMP }} />
-          <div className="ramp-labels">
-            <span>−0.2</span>
-            <span>0.35</span>
-            <span>0.9</span>
+          <div role="radiogroup" aria-labelledby="layer-label" className="segmented legend-switch">
+            {LAYERS.map(({ value, label }) => {
+              const active = layer === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-busy={active && overlayLoading}
+                  onClick={() => setLayer(value)}
+                >
+                  {active && overlayLoading ? (
+                    <SpinnerIcon size={14} className="spin" />
+                  ) : value === "ndvi" ? (
+                    <span className="legend-switch-ramp" aria-hidden="true" />
+                  ) : (
+                    <ImageIcon size={14} />
+                  )}
+                  {label}
+                </button>
+              );
+            })}
           </div>
-          <Link href="/#ranglar" className="legend-link">
-            Ranglar nimani bildiradi?
-          </Link>
-        </div>
+
+          {layer === "ndvi" ? (
+            <>
+              <div className="ramp" aria-hidden="true" style={{ background: RAMP }} />
+              <div className="ramp-labels">
+                <span>−0.2</span>
+                <span>0.35</span>
+                <span>0.9</span>
+              </div>
+              <Link href="/#ranglar" className="legend-link">
+                Ranglar nimani bildiradi?
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="legend-note">
+                Dalaning shu kundagi surati, koʻz bilan koʻrgandek. Yashil — oʻsimlik, jigarrang — ochiq tuproq.
+              </p>
+              <p className="legend-meta">
+                <span className="rgb-swatches" aria-hidden="true">
+                  <span style={{ background: "#45592b" }} />
+                  <span style={{ background: "#7a7a4c" }} />
+                  <span style={{ background: "#ae9a70" }} />
+                </span>
+                Sentinel-2 · 10 m piksel
+              </p>
+            </>
+          )}
+        </section>
       </main>
 
       {reportOpen && selectedField && (

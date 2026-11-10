@@ -1,5 +1,6 @@
 """Store and read NDVI observations."""
 
+from collections.abc import Callable
 from datetime import date
 
 from geoalchemy2.shape import to_shape
@@ -7,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Field, NdviObservation
-from app.services.ndvi import FieldNdvi, compute_field_ndvi_series
+from app.services.ndvi import FieldNdvi, iter_field_ndvi_series
 
 
 def save_observation(db: Session, field_id: int, result: FieldNdvi) -> NdviObservation:
@@ -59,10 +60,24 @@ def latest_observation(db: Session, field_id: int) -> NdviObservation | None:
     )
 
 
-def backfill_field(db: Session, field: Field, start: date, end: date) -> list[NdviObservation]:
-    """Compute and store NDVI for all clear scenes of the field in [start, end]."""
-    results = compute_field_ndvi_series(field.id, to_shape(field.geometry), start, end)
-    return [save_observation(db, field.id, result) for result in results]
+def backfill_field(
+    db: Session,
+    field: Field,
+    start: date,
+    end: date,
+    on_saved: Callable[[NdviObservation], None] | None = None,
+) -> list[NdviObservation]:
+    """Compute and store NDVI for all clear scenes of the field in [start, end].
+
+    Each observation is saved as soon as it is computed, so the history grows while the job runs.
+    """
+    observations: list[NdviObservation] = []
+    for result in iter_field_ndvi_series(field.id, to_shape(field.geometry), start, end):
+        observation = save_observation(db, field.id, result)
+        observations.append(observation)
+        if on_saved is not None:
+            on_saved(observation)
+    return observations
 
 
 def previous_observation(db: Session, field_id: int, before: date) -> NdviObservation | None:

@@ -1,4 +1,4 @@
-"""Render an NDVI COG as a colored PNG for web maps."""
+"""Render NDVI and true color (RGB) COGs as PNG images for web maps."""
 
 import warnings
 from pathlib import Path
@@ -54,6 +54,18 @@ def colorize(ndvi: np.ndarray) -> np.ndarray:
     return rgba
 
 
+def _png(rgba: np.ndarray) -> bytes:
+    """Encode an RGBA array with shape (4, rows, cols) as PNG."""
+    _, height, width = rgba.shape
+    # The PNG has no coordinates on purpose: the map places it with image_bounds().
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", NotGeoreferencedWarning)
+        with MemoryFile() as memfile:
+            with memfile.open(driver="PNG", width=width, height=height, count=4, dtype="uint8") as dst:
+                dst.write(rgba)
+            return memfile.read()
+
+
 def render_png(cog_path: Path) -> bytes:
     """Reproject the NDVI COG to Web Mercator and return a colored PNG."""
     with rasterio.open(cog_path) as src:
@@ -68,12 +80,21 @@ def render_png(cog_path: Path) -> bytes:
             dst_nodata=np.nan,
             resampling=Resampling.nearest,
         )
+    return _png(colorize(ndvi))
 
-    rgba = colorize(ndvi)
-    # The PNG has no coordinates on purpose: the map places it with image_bounds().
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", NotGeoreferencedWarning)
-        with MemoryFile() as memfile:
-            with memfile.open(driver="PNG", width=width, height=height, count=4, dtype="uint8") as dst:
-                dst.write(rgba)
-            return memfile.read()
+
+def render_rgb_png(rgb_cog_path: Path) -> bytes:
+    """Reproject the RGBA COG of a field to Web Mercator and return it as PNG."""
+    with rasterio.open(rgb_cog_path) as src:
+        transform, width, height = _mercator_grid(src)
+        # Pixels outside the source grid stay 0, so their alpha is 0 (transparent).
+        rgba = np.zeros((4, height, width), dtype=np.uint8)
+        for band in range(4):
+            reproject(
+                source=rasterio.band(src, band + 1),
+                destination=rgba[band],
+                dst_transform=transform,
+                dst_crs=WEB_MERCATOR,
+                resampling=Resampling.nearest,
+            )
+    return _png(rgba)
