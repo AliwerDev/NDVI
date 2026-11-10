@@ -94,6 +94,11 @@ export class ApiError extends Error {
   }
 }
 
+/** The text of any thrown value, for an error toast. */
+export function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
   const response = await fetch(`${API_URL}${path}`, {
