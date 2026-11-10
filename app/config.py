@@ -47,6 +47,31 @@ class Settings(BaseSettings):
     # A field without observations is searched for this many days back.
     scheduler_lookback_days: int = 10
 
+    # Weather (Open-Meteo). The free API is for non-commercial use only.
+    # A commercial plan gives an API key and its own host: change the URLs and set the key.
+    open_meteo_url: str = "https://api.open-meteo.com/v1/forecast"
+    open_meteo_archive_url: str = "https://archive-api.open-meteo.com/v1/archive"
+    open_meteo_api_key: str | None = None
+    weather_timeout_seconds: float = 20.0
+    # The daily update stores this many past days and forecast days for each grid cell.
+    weather_past_days: int = 7
+    weather_forecast_days: int = 7
+    # Frost and heat warnings for the next N days of the forecast (degrees Celsius).
+    frost_threshold_c: float = 0.0
+    heat_threshold_c: float = 40.0
+    weather_alert_days: int = 3
+    # Only fields with growing plants get the warnings: an observation of the last N days
+    # has mean NDVI >= NDRE_MIN_NDVI. So a bare field in winter gets no frost message every day.
+    growing_lookback_days: int = 30
+    # Irrigation: water loss (ET0 minus rain of the last 7 days) that needs watering, in mm.
+    irrigation_deficit_mm: float = 20.0
+    # This much rain in the next 3 days lets the farmer wait with the watering, in mm.
+    rain_skip_mm: float = 10.0
+    # Spray and fertilizer day: a forecast day with less rain (mm) and less maximum wind (m/s) than these values.
+    # The forecast gives the daily maximum wind. Morning wind is usually lower.
+    spray_max_rain_mm: float = 1.0
+    spray_max_wind: float = 5.0
+
     # Telegram. Without a token the bot does not start and alerts are not sent.
     telegram_bot_token: str | None = None
 
