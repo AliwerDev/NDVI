@@ -803,6 +803,60 @@ p {
   justify-content: center;
 }
 
+/* Loading skeletons */
+
+.sk {
+  display: block;
+  flex: none;
+  background: var(--track);
+  border-radius: 6px;
+  animation: sk-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes sk-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk {
+    animation: none;
+  }
+}
+
+.sk-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+.account-name.sk-lines {
+  gap: 6px;
+}
+
+.sk-row {
+  min-height: 44px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sk-end {
+  margin-left: auto;
+}
+
+.sk-grow {
+  flex: 1;
+}
+
+.sk-chart {
+  width: 100%;
+  aspect-ratio: 300 / 184;
+  border-radius: 10px;
+}
+
 /* Chart */
 
 .chart {

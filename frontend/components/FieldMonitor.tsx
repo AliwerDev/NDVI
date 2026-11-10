@@ -30,6 +30,7 @@ import NdviChart from "@/components/NdviChart";
 import NdviReport from "@/components/NdviReport";
 import NitrogenCard from "@/components/NitrogenCard";
 import ObservationStats from "@/components/ObservationStats";
+import { AccountSkeleton, ChartSkeleton, FieldListSkeleton, ObservationSkeleton } from "@/components/Skeletons";
 import {
   api,
   ApiError,
@@ -100,6 +101,8 @@ export default function FieldMonitor() {
   const closeReport = useCallback(() => setReportOpen(false), []);
 
   const [user, setUser] = useState<User | null>(null);
+  const [userLoaded, setUserLoaded] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [computing, setComputing] = useState(false);
@@ -111,6 +114,8 @@ export default function FieldMonitor() {
 
   const selectedField = fields.find((field) => field.id === selectedId) ?? null;
   const draftArea = ringAreaHa(draftPoints);
+  // urlRestored turns true after the first field list request ends, with or without an error.
+  const fieldsLoading = !urlRestored;
   // The field check drops a late response for a field that is no longer selected.
   const backfillRunning = backfillJob?.status === "running" && backfillJob.field_id === selectedId;
 
@@ -162,7 +167,11 @@ export default function FieldMonitor() {
 
   useEffect(() => {
     // A 401 here sends the user to the login page (see lib/api.ts).
-    api.me().then(setUser).catch(() => undefined);
+    api
+      .me()
+      .then(setUser)
+      .catch(() => undefined)
+      .finally(() => setUserLoaded(true));
   }, []);
 
   // When the field changes: load its history and show the newest NDVI image.
@@ -171,11 +180,21 @@ export default function FieldMonitor() {
     setSelectedObservation(null);
     setOverlay(null);
     setReportOpen(false);
+    setHistoryLoading(selectedId !== null);
     if (selectedId === null) return;
+    // After a quick switch to another field, the old request must not end the new field's loading state.
+    let cancelled = false;
     run(async () => {
-      const observations = await loadHistory(selectedId);
-      if (observations.length > 0) setSelectedObservation(observations[observations.length - 1]);
+      try {
+        const observations = await loadHistory(selectedId);
+        if (observations.length > 0) setSelectedObservation(observations[observations.length - 1]);
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedId, run, loadHistory]);
 
   // A job can already run for this field: started in another tab, or before a page reload.
@@ -355,6 +374,7 @@ export default function FieldMonitor() {
           </Link>
         </header>
 
+        {!userLoaded && <AccountSkeleton />}
         {user && (
           <Link href="/settings" className="account" aria-label={`Sozlamalar: ${user.display_name}`}>
             <span className="account-avatar" aria-hidden="true">
@@ -478,9 +498,15 @@ export default function FieldMonitor() {
         <section className="card" aria-labelledby="fl-title">
           <div className="card-head">
             <h2 id="fl-title">Maydonlar</h2>
-            <span className="badge">{fields.length}</span>
+            {fieldsLoading ? (
+              <span className="sk" aria-hidden="true" style={{ width: 26, height: 20, borderRadius: 999 }} />
+            ) : (
+              <span className="badge">{fields.length}</span>
+            )}
           </div>
-          {fields.length === 0 ? (
+          {fieldsLoading ? (
+            <FieldListSkeleton />
+          ) : fields.length === 0 ? (
             <div className="empty">
               <span className="empty-icon">
                 <FieldsIcon size={22} />
@@ -568,13 +594,19 @@ export default function FieldMonitor() {
               </div>
               <IndexTabs value={index} onChange={selectIndex} />
               <p className="meta index-caption">{INDICES[index].caption}</p>
-              <NdviChart
-                observations={history}
-                selectedId={selectedObservation?.id ?? null}
-                onSelect={setSelectedObservation}
-                index={index}
-              />
+              {historyLoading ? (
+                <ChartSkeleton />
+              ) : (
+                <NdviChart
+                  observations={history}
+                  selectedId={selectedObservation?.id ?? null}
+                  onSelect={setSelectedObservation}
+                  index={index}
+                />
+              )}
             </section>
+
+            {historyLoading && <ObservationSkeleton />}
 
             {selectedObservation && (
               <section className="card" aria-labelledby="st-title">

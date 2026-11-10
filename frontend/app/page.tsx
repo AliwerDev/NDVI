@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import {
@@ -19,6 +18,7 @@ import {
   WiltedLeafIcon,
 } from "@/components/icons";
 import LogoMark from "@/components/Logo";
+import MapAccessLink from "@/components/MapAccessLink";
 import { formatIndex, type IndexName, indexColor, indexTextColor, INDICES, rampGradient, rampPercent } from "@/lib/ndvi";
 
 import "./home.css";
@@ -220,15 +220,6 @@ function SectionHead({ id, eyebrow, title, lead }: { id: string; eyebrow: string
   );
 }
 
-function OpenMapLink({ className }: { className: string }) {
-  return (
-    <Link href="/monitoring" className={className}>
-      Xaritani ochish
-      <ArrowRightIcon size={18} />
-    </Link>
-  );
-}
-
 /** An index ramp with a black mark at the alert threshold, if the index has one. */
 function IndexRamp({ index, className }: { index: IndexName; className: string }) {
   const threshold = INDICES[index].threshold;
@@ -266,8 +257,7 @@ export default function HomePage() {
             <a href="#suv-azot">Suv va azot</a>
             <a href="#qanday">Qanday ishlaydi</a>
             <a href="#savollar">Savollar</a>
-            <Link href="/login">Kirish</Link>
-            <OpenMapLink className="home-btn home-btn-primary home-btn-sm" />
+            <MapAccessLink className="home-btn home-btn-primary home-btn-sm" iconSize={16} />
           </div>
         </nav>
       </header>
@@ -286,7 +276,7 @@ export default function HomePage() {
               Muammo boshlansa, Telegram orqali darhol xabar beramiz.
             </p>
             <div className="home-actions">
-              <OpenMapLink className="home-btn home-btn-primary home-btn-lg" />
+              <MapAccessLink className="home-btn home-btn-primary home-btn-lg" />
               <a href="#imkoniyatlar" className="home-btn home-btn-outline home-btn-lg">
                 Imkoniyatlar
               </a>
@@ -741,7 +731,7 @@ export default function HomePage() {
               <h2 id="cta-title">Birinchi dalangizni qoʻshing</h2>
               <p>Xaritada dalani chizing. Qolganini sunʼiy yoʻldosh va biz bajaramiz.</p>
             </div>
-            <OpenMapLink className="home-btn home-btn-light home-btn-lg" />
+            <MapAccessLink className="home-btn home-btn-light home-btn-lg" />
           </div>
         </section>
       </main>
