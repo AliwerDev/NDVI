@@ -1317,10 +1317,19 @@ p {
 }
 
 /* NDVI | Rangli rasm switch inside the legend. Colors and states come from .segmented. */
+/* NDVI | NDMI | NDRE | Rasm in one row. */
+.legend-switch {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+}
+
 .legend-switch button {
-  height: 36px;
-  font-size: 13px;
-  gap: 6px;
+  height: 32px;
+  border-radius: 7px;
+  font-size: 12px;
+  gap: 4px;
 }
 
 /* A small sample of an index ramp on a switch button. The gradient comes from lib/ndvi.ts. */
@@ -1330,13 +1339,6 @@ p {
   height: 10px;
   border-radius: 3px;
   box-shadow: inset 0 0 0 1px rgba(20, 20, 19, 0.1);
-}
-
-.legend-foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
 }
 
 .legend-note {
@@ -1366,10 +1368,94 @@ p {
 
 .legend-head {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   color: var(--muted);
+}
+
+.legend-date {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.legend-help-btn {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.legend-help-btn:hover,
+.legend-help-btn[aria-expanded="true"] {
+  background: var(--accent-hover);
+}
+
+/* The "?" help opens above the legend, so the legend itself keeps its size. */
+.legend-help {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  padding: 12px 14px;
+  background: var(--text);
+  color: var(--surface);
+  border-radius: 10px;
+  box-shadow: var(--shadow-float);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.legend-help strong {
+  font-size: 13px;
+}
+
+.legend-help-meta {
+  color: #c9c4b8;
+}
+
+.legend-help-link {
+  font-weight: 500;
+  color: #a6d96a;
+}
+
+.legend-help-link:hover {
+  color: #c8eba0;
+}
+
+.ramp-wrap {
+  position: relative;
+}
+
+/* The threshold of the index (NDMI 0, NDRE 0.20) on the legend ramp. */
+.ramp-mark {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 18px;
+  background: var(--text);
+}
+
+.ramp-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.ramp-ends strong {
+  font-weight: 600;
 }
 
 .legend-head span:first-child {
@@ -1383,32 +1469,10 @@ p {
   border-radius: 6px;
 }
 
-.ramp-labels {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-2);
-  font-variant-numeric: tabular-nums;
-}
 
-.ramp-labels span:nth-child(2) {
-  text-align: center;
-}
 
-.ramp-labels span:last-child {
-  text-align: right;
-}
 
-.legend-link {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--accent);
-}
 
-.legend-link:hover {
-  color: var(--accent-hover);
-}
 
 .map-zoom {
   position: absolute;
@@ -1687,7 +1751,7 @@ p {
     height: 8px;
   }
 
-  .ramp-labels {
+  .ramp-ends {
     font-size: 11px;
   }
 

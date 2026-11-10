@@ -1,23 +1,32 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import {
   ArrowRightIcon,
   CheckIcon,
+  DropletIcon,
   GlobeIcon,
+  HistoryIcon,
+  ImageIcon,
   InfoIcon,
+  LayersIcon,
   LeafIcon,
   PinIcon,
+  SearchIcon,
+  SendIcon,
   WarningIcon,
   WiltedLeafIcon,
 } from "@/components/icons";
 import LogoMark from "@/components/Logo";
+import { formatIndex, type IndexName, indexColor, indexTextColor, INDICES, rampGradient, rampPercent } from "@/lib/ndvi";
 
 import "./home.css";
 
 export const metadata: Metadata = {
-  title: "NDVI nima? — NDVI monitoring",
-  description: "NDVI nima, ranglar nimani bildiradi va dalangizni sunʼiy yoʻldosh orqali qanday kuzatish mumkin.",
+  title: "NDVI monitoring — dalangizni kosmosdan kuzating",
+  description:
+    "Sentinel-2 sunʼiy yoʻldosh suratlaridan NDVI, NDMI va NDRE: oʻsimlik holati, suv stressi va azot. Muammo boshlansa, Telegram orqali xabar.",
 };
 
 const RAMP =
@@ -30,6 +39,37 @@ const SAMPLE_PIXELS = [
   ["#fee08b", "#d2dc7b", "#60b865", "#1a9850", "#60b865", "#1a9850", "#138a4a", "#1a9850", "#a6d96a"],
   ["#ea8865", "#fee08b", "#a6d96a", "#60b865", "#1a9850", "#60b865", "#1a9850", "#60b865", "#d2dc7b"],
   ["#d73027", "#ea8865", "#fee08b", "#a6d96a", "#60b865", "#a6d96a", "#60b865", "#a6d96a", "#fee08b"],
+];
+
+// The same field as an NDVI picture for the "Rangli rasm" card: a weak corner at the lower left.
+const MINI_PIXELS = [
+  ["#1a9850", "#138a4a", "#0b7a41", "#1a9850", "#138a4a", "#1a9850", "#60b865", "#a6d96a"],
+  ["#138a4a", "#006837", "#0b7a41", "#138a4a", "#1a9850", "#60b865", "#a6d96a", "#d2dc7b"],
+  ["#d73027", "#ea8865", "#fee08b", "#60b865", "#1a9850", "#1a9850", "#60b865", "#a6d96a"],
+  ["#d73027", "#d73027", "#fee08b", "#a6d96a", "#60b865", "#138a4a", "#1a9850", "#60b865"],
+];
+
+const HERO_VALUES: { index: IndexName; value: number; status: string }[] = [
+  { index: "ndvi", value: 0.62, status: "Sogʻlom ekin" },
+  { index: "ndmi", value: 0.18, status: "Namlik yetarli" },
+  { index: "ndre", value: 0.31, status: "Azot yetarli" },
+];
+
+// Mean NDVI of a sample cotton field from April to October.
+const SEASON = [0.18, 0.24, 0.33, 0.45, 0.58, 0.68, 0.74, 0.76, 0.71, 0.66, 0.62, 0.55, 0.47, 0.4];
+
+const INDEX_QUESTIONS: { index: IndexName; question: string; text: string; pixel: string }[] = [
+  { index: "ndvi", question: "Ekin sogʻlommi?", text: "Oʻsimlik zichligi va sogʻligʻi.", pixel: "Piksel 10 × 10 m" },
+  { index: "ndmi", question: "Suv yetarlimi?", text: "Barg namligi. 0 dan past — suv stressi.", pixel: "Piksel 20 × 20 m" },
+  { index: "ndre", question: "Azot yetarlimi?", text: "Xlorofill. 0.20 dan past — azot kam.", pixel: "Piksel 20 × 20 m" },
+];
+
+// The numbers in the alert texts come from the backend settings: NDVI_DROP_THRESHOLD,
+// NDMI_STRESS_THRESHOLD and NDRE_LOW_THRESHOLD.
+const ALERTS = [
+  { tone: "danger", title: "NDVI keskin tushdi", text: "«Paxta-1»: 0.71 → 0.54. Pasayish 0.17." },
+  { tone: "water", title: "Suv stressi", text: "«Paxta-1»: NDMI −0.05. Chegara 0.00. Sugʻorishni tekshiring." },
+  { tone: "warn", title: "Azot kam", text: "«Paxta-1»: NDRE 0.18. Chegara 0.20. Dalani koʻzdan kechiring." },
 ];
 
 const LEAVES = [
@@ -45,20 +85,68 @@ const CLASSES = [
   { range: "0.6 dan yuqori", title: "Zich, sogʻlom ekin", text: "Yerni toʻliq qoplagan, faol oʻsayotgan oʻsimlik.", color: "rgb(26,152,80)" },
 ];
 
-// The numbers come from the backend settings: SCHEDULER_HOUR, MIN_CLEAR_FRACTION, NDVI_DROP_THRESHOLD.
-const STEPS = [
-  { title: "Dalangizni chizing", text: "Xaritada dala burchaklarini bosing va nom bering. Kamida 3 ta nuqta kerak." },
+// The numbers come from the backend settings: NDMI_STRESS_THRESHOLD, NDMI_DROP_THRESHOLD,
+// NDRE_LOW_THRESHOLD, NDRE_OK_THRESHOLD and NDRE_MIN_NDVI.
+const WATER_NITROGEN: {
+  index: "ndmi" | "ndre";
+  title: string;
+  sub: string;
+  text: string;
+  formula: string;
+  Icon: typeof LeafIcon;
+  rules: { tone: string; head: string; text: string }[];
+}[] = [
   {
-    title: "Sunʼiy yoʻldosh suratga oladi",
-    text: "Sentinel-2 sunʼiy yoʻldoshlari Oʻzbekistonni har 2–5 kunda suratga oladi. Har bir piksel 10 × 10 m: 1 gektarda 100 ta piksel.",
+    index: "ndmi",
+    title: "NDMI — barg namligi",
+    sub: "Suv stressini koʻrsatadi",
+    text: "Barg ichidagi suv qisqa toʻlqinli infraqizil (SWIR) nurni yutadi. Barg qancha nam boʻlsa, SWIR shuncha kam qaytadi va NDMI shuncha yuqori boʻladi.",
+    formula: "NDMI = (NIR − SWIR) ÷ (NIR + SWIR)",
+    Icon: DropletIcon,
+    rules: [
+      { tone: "danger", head: "0 dan past —", text: "suv stressi. Bot ogohlantiradi." },
+      { tone: "warn", head: "0.10 yoki koʻproq tushsa —", text: "namlik tez kamaymoqda. Bot ogohlantiradi." },
+      { tone: "water", head: "0 dan yuqori —", text: "barglarda namlik yetarli." },
+    ],
   },
   {
-    title: "Biz NDVI hisoblaymiz",
-    text: "Har kuni soat 07:00 da yangi surat tekshiriladi. Bulutli suratlar tashlanadi: dalaning kamida 80% qismi ochiq koʻrinishi kerak.",
+    index: "ndre",
+    title: "NDRE — azot holati",
+    sub: "Azot tavsiyasini beradi",
+    text: "Qizil chegara (red-edge) nuri xlorofillga sezgir. Xlorofill miqdori azotga bogʻliq: azot kam boʻlsa, barg xlorofilli va NDRE pasayadi.",
+    formula: "NDRE = (NIR − RedEdge) ÷ (NIR + RedEdge)",
+    Icon: LeafIcon,
+    rules: [
+      { tone: "danger", head: "0.20 dan past —", text: "azot kam boʻlishi ehtimoli bor. Bot ogohlantiradi." },
+      { tone: "warn", head: "0.20 – 0.30 —", text: "oʻrtacha." },
+      {
+        tone: "ok",
+        head: "0.30 va undan yuqori —",
+        text: "azot yetarli. NDVI 0.30 dan past boʻlsa, ekin siyrak va baho berilmaydi.",
+      },
+    ],
+  },
+];
+
+// The numbers come from the backend settings: SCHEDULER_HOUR, MIN_CLEAR_FRACTION, NDVI_DROP_THRESHOLD,
+// NDMI_STRESS_THRESHOLD, NDRE_LOW_THRESHOLD. The season starts on 1 March, see seasonStart() in lib/ndvi.ts.
+const STEPS = [
+  { title: "Dalangizni chizing", text: "Joy nomini qidiring. Xaritada dala burchaklarini bosing va nom bering. Kamida 3 ta nuqta kerak." },
+  {
+    title: "Sunʼiy yoʻldosh suratga oladi",
+    text: "Sentinel-2 Oʻzbekistonni har 2–5 kunda suratga oladi. NDVI pikseli 10 × 10 m, NDMI va NDRE pikseli 20 × 20 m.",
+  },
+  {
+    title: "Biz uchta indeks hisoblaymiz",
+    text: "Har kuni soat 07:00 da yangi surat tekshiriladi. Dalaning kamida 80% qismi ochiq koʻrinmasa, surat tashlanadi.",
+  },
+  {
+    title: "Mavsum tarixini yuklang",
+    text: "Bitta tugma 1-martdan bugungacha boʻlgan tiniq suratlarni fonda yuklaydi. Grafik darhol toʻladi.",
   },
   {
     title: "Telegram xabar beradi",
-    text: "Oʻrtacha NDVI oldingi kuzatuvdan 0.15 yoki koʻproq tushsa, bot ogohlantiradi. NDMI suv stressini, NDRE azot yetishmasligini koʻrsatsa ham xabar keladi. Telegram orqali kirsangiz, xabarlar oʻsha Telegramga keladi.",
+    text: "NDVI 0.15 yoki koʻproq tushsa, NDMI 0 dan pastga tushsa yoki NDRE 0.20 dan past boʻlsa, bot yozadi. Telegram orqali kirsangiz, xabarlar oʻsha Telegramga keladi.",
   },
 ];
 
@@ -78,6 +166,18 @@ const NATURAL = [
 ];
 
 const FAQ = [
+  {
+    q: "Oʻtgan oylarni ham koʻrsa boʻladimi?",
+    a: "Ha. «Mavsum tarixini yuklash» tugmasi 1-martdan bugungacha boʻlgan barcha tiniq suratlarni fonda yuklaydi. Grafik va hisobot yangi kuzatuvlar bilan toʻlib boradi.",
+  },
+  {
+    q: "Azot tavsiyasiga ishonsa boʻladimi?",
+    a: "Bu sunʼiy yoʻldosh bahosi. NDRE past boʻlsa, dalaning oʻsha qismini koʻzdan kechiring va oʻgʻit berishni agronom bilan kelishing. NDVI 0.30 dan past boʻlsa, ekin siyrak va baho berilmaydi.",
+  },
+  {
+    q: "NDMI va NDRE xaritasi nega xiraroq?",
+    a: "Ular Sentinel-2 ning 20 metrli kanallaridan hisoblanadi. Shuning uchun ularning piksellari NDVI piksellaridan 4 marta katta.",
+  },
   {
     q: "Bulutli kunlarda nima boʻladi?",
     a: "Sunʼiy yoʻldosh bulut ostini koʻrmaydi. Bunday suratlar tashlanadi va keyingi ochiq kun kutiladi. Bulutli mavsumda kuzatuvlar orasidagi tanaffus uzoqroq boʻladi.",
@@ -100,6 +200,14 @@ const FAQ = [
   },
 ];
 
+// The season chart in the "Butun mavsum tarixi" card: x from 6 to 294, y from 88 (NDVI 0) up.
+const SEASON_POINTS = SEASON.map((value, i) => ({
+  x: +(6 + (i * 288) / (SEASON.length - 1)).toFixed(1),
+  y: +(88 - value * 80).toFixed(1),
+}));
+const SEASON_LINE = SEASON_POINTS.map(({ x, y }) => `${x},${y}`).join(" ");
+const SEASON_AREA = `M${SEASON_POINTS[0].x} 88 L${SEASON_POINTS.map(({ x, y }) => `${x} ${y}`).join(" L")} L${SEASON_POINTS[SEASON_POINTS.length - 1].x} 88 Z`;
+
 function SectionHead({ id, eyebrow, title, lead }: { id: string; eyebrow: string; title: string; lead?: string }) {
   return (
     <div className="home-section-head">
@@ -121,6 +229,28 @@ function OpenMapLink({ className }: { className: string }) {
   );
 }
 
+/** An index ramp with a black mark at the alert threshold, if the index has one. */
+function IndexRamp({ index, className }: { index: IndexName; className: string }) {
+  const threshold = INDICES[index].threshold;
+  return (
+    <span className={className} aria-hidden="true" style={{ background: rampGradient(INDICES[index].stops) }}>
+      {threshold && <span style={{ left: `calc(${rampPercent(index, threshold.value)}% - 1px)` }} />}
+    </span>
+  );
+}
+
+function FeatureHead({ Icon, title, children }: { Icon: typeof LeafIcon; title: string; children?: ReactNode }) {
+  return (
+    <div className="home-feature-head">
+      <span className="home-feature-icon" aria-hidden="true">
+        <Icon size={22} />
+      </span>
+      <h3>{title}</h3>
+      {children}
+    </div>
+  );
+}
+
 export default function HomePage() {
   return (
     <div className="home">
@@ -131,8 +261,9 @@ export default function HomePage() {
             <span>NDVI monitoring</span>
           </a>
           <div className="home-nav-links">
+            <a href="#imkoniyatlar">Imkoniyatlar</a>
             <a href="#nima">NDVI nima?</a>
-            <a href="#ranglar">Ranglar</a>
+            <a href="#suv-azot">Suv va azot</a>
             <a href="#qanday">Qanday ishlaydi</a>
             <a href="#savollar">Savollar</a>
             <Link href="/login">Kirish</Link>
@@ -150,20 +281,20 @@ export default function HomePage() {
             </span>
             <h1 className="home-h1">Dalangiz sogʻligʻini kosmosdan kuzating</h1>
             <p className="home-hero-lead">
-              NDVI oʻsimlik qanchalik yashil va baquvvat ekanini bitta raqam bilan koʻrsatadi. Biz uni har bir dalangiz
-              uchun Sentinel-2 sunʼiy yoʻldosh suratlaridan hisoblaymiz. Raqam keskin tushsa, Telegram orqali darhol xabar
-              beramiz.
+              Har bir dalangiz uchun Sentinel-2 sunʼiy yoʻldosh suratlaridan uchta indeks hisoblaymiz:{" "}
+              <strong>NDVI</strong> — oʻsimlik holati, <strong>NDMI</strong> — barg namligi, <strong>NDRE</strong> — azot.
+              Muammo boshlansa, Telegram orqali darhol xabar beramiz.
             </p>
             <div className="home-actions">
               <OpenMapLink className="home-btn home-btn-primary home-btn-lg" />
-              <a href="#nima" className="home-btn home-btn-outline home-btn-lg">
-                NDVI nima?
+              <a href="#imkoniyatlar" className="home-btn home-btn-outline home-btn-lg">
+                Imkoniyatlar
               </a>
             </div>
             <dl className="home-facts">
               <div>
-                <dt>Har bir piksel</dt>
-                <dd>10 × 10 m</dd>
+                <dt>Indekslar</dt>
+                <dd>NDVI · NDMI · NDRE</dd>
               </div>
               <div>
                 <dt>Yangi surat</dt>
@@ -203,28 +334,181 @@ export default function HomePage() {
                 <span>Paxta-1</span>
                 <span>05.11.2026</span>
               </div>
-              <div className="home-hero-card-value">
-                <span className="home-ndvi home-ndvi-healthy">0.62</span>
-                <span>Sogʻlom ekin</span>
-              </div>
-              <svg viewBox="0 0 228 40" role="img" aria-label="Mavsum davomida NDVI oʻsishi, namuna">
-                <polyline
-                  points="0,34 19,32 38,28 57,23 76,17 95,12 114,8 133,6 152,7 171,9 190,11 209,12 228,12"
-                  fill="none"
-                  stroke="#2e6b3d"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-                <circle cx="228" cy="12" r="4" fill="#1a9850" stroke="#141413" strokeWidth="1.5" />
-              </svg>
+              <dl className="home-hero-values">
+                {HERO_VALUES.map(({ index, value, status }) => (
+                  <div key={index}>
+                    <dt>{INDICES[index].label}</dt>
+                    <dd
+                      className="home-hero-value"
+                      style={{ background: indexColor(index, value), color: indexTextColor(index, value) }}
+                    >
+                      {formatIndex(value)}
+                    </dd>
+                    <dd className={`home-tone-${index}`}>{status}</dd>
+                  </div>
+                ))}
+              </dl>
             </figcaption>
           </figure>
+        </section>
+
+        <section className="home-divided" aria-labelledby="imkoniyatlar">
+          <div className="home-container home-section">
+            <SectionHead
+              id="imkoniyatlar"
+              eyebrow="01 · IMKONIYATLAR"
+              title="Bitta xaritada — dalaning toʻliq holati"
+              lead="NDVI «nimadir oʻzgardi» deydi. NDMI va NDRE sababini topishga yordam beradi: suv yetmayaptimi yoki azot. Hammasi bitta xaritada, bitta grafikda."
+            />
+
+            <div className="home-features">
+              <article className="home-feature home-feature-wide">
+                <FeatureHead Icon={LayersIcon} title="Uchta indeks — uchta savol" />
+                <div className="home-index-grid">
+                  {INDEX_QUESTIONS.map(({ index, question, text, pixel }) => (
+                    <div key={index} className="home-index">
+                      <span className={`home-index-label home-tone-${index}`}>{INDICES[index].label}</span>
+                      <strong>{question}</strong>
+                      <span>{text}</span>
+                      <IndexRamp index={index} className="home-index-ramp" />
+                      <span className="home-index-ends">
+                        <span>{INDICES[index].rampEnds[0].word}</span>
+                        <span>{INDICES[index].rampEnds[1].word}</span>
+                      </span>
+                      <span className="home-index-meta">{pixel}</span>
+                    </div>
+                  ))}
+                </div>
+                <a href="#suv-azot" className="home-more">
+                  Suv va azot haqida batafsil
+                  <ArrowRightIcon size={16} />
+                </a>
+              </article>
+
+              <article className="home-feature home-feature-tall home-feature-dark">
+                <FeatureHead Icon={SendIcon} title="Telegram ogohlantirish" />
+                <p>Har kuni 07:00 da yangi surat tekshiriladi. Muammo boshlansa, bot darhol yozadi.</p>
+                <ul className="home-alerts">
+                  {ALERTS.map(({ tone, title, text }) => (
+                    <li key={title}>
+                      <span className={`status-chip home-chip-${tone}`}>
+                        <span className="status-dot" aria-hidden="true" />
+                        {title}
+                      </span>
+                      <span>{text}</span>
+                      <span className="home-alert-time">07:02</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="home-feature-foot">Telegram orqali parolsiz kiring. Xabarlar oʻsha akkauntga keladi.</p>
+              </article>
+
+              <article className="home-feature">
+                <FeatureHead Icon={HistoryIcon} title="Butun mavsum tarixi" />
+                <p>Bitta tugma 1-martdan bugungacha boʻlgan barcha tiniq suratlarni yuklaydi. Hisobotda uchala indeks jadvali bor.</p>
+                <svg
+                  className="home-season"
+                  viewBox="0 0 300 96"
+                  role="img"
+                  aria-label="Mavsum davomida NDVI, namuna: aprelda 0.18, iyulda 0.76, oktyabrda 0.40"
+                >
+                  <line x1="0" x2="300" y1="88" y2="88" />
+                  <line x1="0" x2="300" y1="48" y2="48" />
+                  <line x1="0" x2="300" y1="8" y2="8" />
+                  <path d={SEASON_AREA} className="home-season-area" />
+                  <polyline points={SEASON_LINE} className="home-season-line" />
+                  {SEASON_POINTS.map(({ x, y }) => (
+                    <circle key={x} cx={x} cy={y} r="3" className="home-season-point" />
+                  ))}
+                </svg>
+                <span className="home-season-months" aria-hidden="true">
+                  <span>aprel</span>
+                  <span>iyul</span>
+                  <span>oktyabr</span>
+                </span>
+              </article>
+
+              <article className="home-feature">
+                <FeatureHead Icon={LeafIcon} title="Azot tavsiyasi">
+                  <span className="status-chip status-danger">
+                    <span className="status-dot" aria-hidden="true" />
+                    Azot kam
+                  </span>
+                </FeatureHead>
+                <p>NDRE boʻyicha azot yetishmasligi ehtimolini koʻrsatamiz. Oʻgʻit berishdan oldin dalani tekshiring.</p>
+                {/* The same 0–0.5 scale as NitrogenCard: low below 0.20, enough from 0.30. */}
+                <div className="n-scale home-n-scale" aria-hidden="true">
+                  <div className="n-scale-bar" style={{ gridTemplateColumns: "40fr 20fr 40fr" }}>
+                    <span />
+                    <span />
+                    <span />
+                    <span className="n-scale-marker" style={{ left: "calc(36% - 2px)" }} />
+                  </div>
+                  <div className="n-scale-labels" style={{ gridTemplateColumns: "40fr 20fr 40fr" }}>
+                    <span>Kam · &lt; 0.20</span>
+                    <span>Oʻrtacha</span>
+                    <span>Yetarli · ≥ 0.30</span>
+                  </div>
+                </div>
+                <span className="home-feature-meta">
+                  «Paxta-1»: NDRE <strong>0.18</strong>
+                </span>
+              </article>
+
+              <article className="home-feature">
+                <FeatureHead Icon={SearchIcon} title="Joyni toping, dalani chizing" />
+                <p>Qishloq, tuman yoki shahar nomini yozing. Xarita oʻsha joyga oʻtadi. Keyin dala burchaklarini bosib chizasiz.</p>
+                <div className="home-search-demo" aria-hidden="true">
+                  <div className="home-search-input">
+                    <SearchIcon size={16} />
+                    Qoʻrgʻontepa
+                  </div>
+                  <div className="home-search-result">
+                    <strong>Qoʻrgʻontepa</strong>
+                    <span>Andijon viloyati, Oʻzbekiston</span>
+                  </div>
+                </div>
+              </article>
+
+              <article className="home-feature home-feature-wide home-feature-row">
+                <div className="home-feature-text">
+                  <FeatureHead Icon={ImageIcon} title="Rangli rasm" />
+                  <p>Shu sananing oddiy suratini ham koʻring. Qizargan joy yoʻlmi, ariqmi yoki haqiqatan zaif ekinmi — rasmda koʻrinadi.</p>
+                </div>
+                <div className="home-pics">
+                  <figure>
+                    <svg viewBox="0 0 200 120" aria-hidden="true">
+                      <rect width="200" height="120" fill="#8a7d5c" />
+                      <rect x="18" y="16" width="164" height="88" fill="#556b2f" />
+                      <rect x="18" y="72" width="54" height="32" fill="#8f835f" />
+                      <rect x="72" y="84" width="40" height="20" fill="#7a7448" />
+                      <path d="M18 50h164M18 30h164" stroke="#4b5f28" strokeWidth="3" />
+                      <rect x="18" y="16" width="164" height="88" fill="none" stroke="#ffffff" strokeWidth="2.5" />
+                    </svg>
+                    <figcaption>Rasm</figcaption>
+                  </figure>
+                  <figure>
+                    <svg viewBox="0 0 200 120" aria-hidden="true" shapeRendering="crispEdges">
+                      <rect width="200" height="120" fill="#8a7d5c" />
+                      {MINI_PIXELS.map((row, r) =>
+                        row.map((color, c) => (
+                          <rect key={`${r}-${c}`} x={18 + c * 20.5} y={16 + r * 22} width="21" height="22" fill={color} />
+                        )),
+                      )}
+                      <rect x="18" y="16" width="164" height="88" fill="none" stroke="#ffffff" strokeWidth="2.5" />
+                    </svg>
+                    <figcaption>NDVI</figcaption>
+                  </figure>
+                </div>
+              </article>
+            </div>
+          </div>
         </section>
 
         <section className="home-band" aria-labelledby="nima">
           <div className="home-container home-section">
             <div className="home-section-head">
-              <span className="home-eyebrow">01 · ASOSIY TUSHUNCHA</span>
+              <span className="home-eyebrow">02 · ASOSIY TUSHUNCHA</span>
               <h2 id="nima" className="home-h2">
                 NDVI nima?
               </h2>
@@ -292,7 +576,7 @@ export default function HomePage() {
         <section className="home-container home-section" aria-labelledby="ranglar">
           <SectionHead
             id="ranglar"
-            eyebrow="02 · XARITANI OʻQISH"
+            eyebrow="03 · XARITANI OʻQISH"
             title="Ranglar nimani bildiradi"
             lead="Xaritada dalangiz piksellarga boʻlinib, har biri oʻz NDVI rangida koʻrinadi. Qizil — oʻsimlik kam, yashil — oʻsimlik zich."
           />
@@ -326,74 +610,128 @@ export default function HomePage() {
           </p>
         </section>
 
-        <section className="home-band" aria-labelledby="qanday">
+        <section className="home-band" aria-labelledby="suv-azot">
           <div className="home-container home-section">
-            <SectionHead id="qanday" eyebrow="03 · XIZMAT" title="Qanday ishlaydi" />
-            <ol className="home-row home-steps">
-              {STEPS.map(({ title, text }, index) => (
-                <li key={title} className="home-card home-step">
-                  <span className="home-step-number">{index + 1}</span>
-                  <h3>{title}</h3>
-                  <p>{text}</p>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        <section className="home-container home-section" aria-labelledby="tushsa">
-          <SectionHead
-            id="tushsa"
-            eyebrow="04 · AMALDA"
-            title="NDVI tushdi. Nima qilish kerak?"
-            lead="Har bir tushish xavf emas. Avval sababini aniqlang."
-          />
-          <div className="home-row">
-            <div className="home-card home-causes home-causes-risk">
-              <h3>
-                <WarningIcon size={20} />
-                Tekshirish kerak
-              </h3>
-              <ul>
-                {RISKS.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="home-card home-causes">
-              <h3>
-                <CheckIcon size={20} />
-                Tabiiy sabablar
-              </h3>
-              <ul>
-                {NATURAL.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <p className="home-note home-note-green">
-            <PinIcon size={20} />
-            <span>Xabar kelsa, xaritada dalaning qaysi qismi qizargan ekanini koʻring va oʻsha joyni birinchi tekshiring.</span>
-          </p>
-        </section>
-
-        <section className="home-band home-band-last" aria-labelledby="savollar">
-          <div className="home-container home-container-narrow home-section">
-            <SectionHead id="savollar" eyebrow="05 · SAVOLLAR" title="Koʻp soʻraladigan savollar" />
-            <div className="home-faq">
-              {FAQ.map(({ q, a }, index) => (
-                <details key={q} open={index === 0}>
-                  <summary>
-                    {q}
-                    <span className="home-faq-plus" aria-hidden="true">
-                      +
+            <SectionHead
+              id="suv-azot"
+              eyebrow="04 · SUV VA AZOT"
+              title="NDMI va NDRE: sababni topish"
+              lead="NDVI tushsa, sabab har xil boʻlishi mumkin. Ikki qoʻshimcha indeks eng koʻp uchraydigan ikki sababni alohida koʻrsatadi: suv yetishmasligi va azot yetishmasligi."
+            />
+            <div className="home-row">
+              {WATER_NITROGEN.map(({ index, title, sub, text, formula, Icon, rules }) => (
+                <article key={index} id={index} className="home-card home-wn">
+                  <div className="home-leaf-head">
+                    <span className={`home-leaf-icon home-wn-icon-${index}`} aria-hidden="true">
+                      <Icon size={22} />
                     </span>
-                  </summary>
-                  <p>{a}</p>
-                </details>
+                    <div className="home-wn-title">
+                      <h3>{title}</h3>
+                      <span>{sub}</span>
+                    </div>
+                  </div>
+                  <p className="home-wn-text">{text}</p>
+                  <p className="home-mono home-wn-formula">{formula}</p>
+                  <div className="home-wn-scale" aria-hidden="true">
+                    <IndexRamp index={index} className="home-wn-ramp" />
+                    <span className="home-wn-ends">
+                      <span>
+                        <strong>{INDICES[index].rampEnds[0].word}</strong> · {INDICES[index].rampEnds[0].value}
+                      </span>
+                      <span>
+                        {INDICES[index].rampEnds[1].value} · <strong>{INDICES[index].rampEnds[1].word}</strong>
+                      </span>
+                    </span>
+                  </div>
+                  <ul className="home-wn-rules">
+                    {rules.map(({ tone, head, text: ruleText }) => (
+                      <li key={head}>
+                        <span className={`home-wn-dot home-wn-dot-${tone}`} aria-hidden="true" />
+                        <span>
+                          <strong>{head}</strong> {ruleText}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
               ))}
             </div>
+            <p className="home-note">
+              <InfoIcon size={20} />
+              <span>
+                NDMI va NDRE piksellari 20 × 20 m, NDVI dan yirikroq. Bu sunʼiy yoʻldosh bahosi:{" "}
+                <strong>sugʻorish yoki oʻgʻit qarori oldidan dalani tekshiring</strong>.
+              </span>
+            </p>
+          </div>
+        </section>
+
+        <section className="home-container home-section" aria-labelledby="qanday">
+          <SectionHead id="qanday" eyebrow="05 · XIZMAT" title="Qanday ishlaydi" />
+          <ol className="home-row home-steps">
+            {STEPS.map(({ title, text }, index) => (
+              <li key={title} className="home-card home-step">
+                <span className="home-step-number">{index + 1}</span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="home-band" aria-labelledby="tushsa">
+          <div className="home-container home-section">
+            <SectionHead
+              id="tushsa"
+              eyebrow="06 · AMALDA"
+              title="NDVI tushdi. Nima qilish kerak?"
+              lead="Har bir tushish xavf emas. Avval sababini aniqlang."
+            />
+            <div className="home-row">
+              <div className="home-card home-causes home-causes-risk">
+                <h3>
+                  <WarningIcon size={20} />
+                  Tekshirish kerak
+                </h3>
+                <ul>
+                  {RISKS.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="home-card home-causes">
+                <h3>
+                  <CheckIcon size={20} />
+                  Tabiiy sabablar
+                </h3>
+                <ul>
+                  {NATURAL.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <p className="home-note home-note-green">
+              <PinIcon size={20} />
+              <span>Xabar kelsa, xaritada dalaning qaysi qismi qizargan ekanini koʻring va oʻsha joyni birinchi tekshiring.</span>
+            </p>
+          </div>
+        </section>
+
+        <section className="home-container home-container-narrow home-section" aria-labelledby="savollar">
+          <SectionHead id="savollar" eyebrow="07 · SAVOLLAR" title="Koʻp soʻraladigan savollar" />
+          <div className="home-faq">
+            {FAQ.map(({ q, a }, index) => (
+              <details key={q} open={index === 0}>
+                <summary>
+                  {q}
+                  <span className="home-faq-plus" aria-hidden="true">
+                    +
+                  </span>
+                </summary>
+                <p>{a}</p>
+              </details>
+            ))}
           </div>
         </section>
 

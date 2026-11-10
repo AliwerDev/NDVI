@@ -35,10 +35,6 @@ html {
   border-bottom: 1px solid var(--border);
 }
 
-.home-band-last {
-  border-bottom: 0;
-}
-
 .home-row {
   list-style: none;
   margin: 0;
@@ -211,6 +207,7 @@ html {
 }
 
 .home-lead strong,
+.home-hero-lead strong,
 .home-text strong,
 .home-note strong {
   color: var(--text);
@@ -406,10 +403,52 @@ html {
   color: var(--accent-text);
 }
 
-.home-hero-card svg {
-  display: block;
-  width: 100%;
-  height: auto;
+.home-hero-values {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-hero-values div {
+  display: grid;
+  grid-template-columns: 48px 64px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.home-hero-values dt {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.home-hero-values dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.home-hero-values .home-hero-value {
+  padding: 1px 0;
+  border-radius: 7px;
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Text colors of the three indices, the same as their chart lines. */
+.home .home-tone-ndvi {
+  color: var(--accent-text);
+}
+
+.home .home-tone-ndmi {
+  color: #234a78;
+}
+
+.home .home-tone-ndre {
+  color: #3f4a0c;
 }
 
 .home-ndvi {
@@ -428,6 +467,469 @@ html {
 .home-ndvi-weak {
   background: #fee08b;
   color: var(--text);
+}
+
+/* Features */
+
+.home-divided {
+  border-top: 1px solid var(--border);
+}
+
+.home-features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.home-feature {
+  min-width: 0;
+  padding: 24px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.home-feature > p,
+.home-feature-text > p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.home-feature-wide {
+  grid-column: span 2;
+}
+
+.home-feature-tall {
+  grid-row: span 2;
+}
+
+.home-feature-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.home-feature-text {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.home-feature-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.home-feature-head .status-chip {
+  margin-left: auto;
+}
+
+.home-feature-icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-feature-meta {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.home-feature-meta strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.home-feature-dark {
+  background: #1f3a26;
+  border-color: #1f3a26;
+  color: var(--surface);
+}
+
+.home .home-feature-dark > p {
+  color: var(--accent-soft);
+}
+
+.home-feature-dark .home-feature-icon {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.home .home-feature-dark .home-feature-foot {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid rgba(250, 249, 245, 0.18);
+  font-size: 14px;
+  color: #cfe0d2;
+}
+
+.home-more {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.home-more:hover {
+  color: var(--accent-hover);
+}
+
+.home-index-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.home-index {
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.home-index strong {
+  font-size: 17px;
+  color: var(--text);
+}
+
+.home-index-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+/* A ramp bar. Its child span is the black threshold mark. */
+.home-index-ramp,
+.home-wn-ramp {
+  position: relative;
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+}
+
+.home-index-ramp span,
+.home-wn-ramp span {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 16px;
+  border-radius: 1px;
+  background: var(--text);
+}
+
+.home-index-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.home-index-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.home-alerts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-alerts li {
+  padding: 12px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--surface);
+  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.home-alerts .status-chip {
+  align-self: flex-start;
+}
+
+.home-alert-time {
+  align-self: flex-end;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.home-chip-danger {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.home-chip-danger .status-dot {
+  background: var(--danger);
+}
+
+.home-chip-water {
+  background: #e6eef8;
+  color: #234a78;
+}
+
+.home-chip-water .status-dot {
+  background: #2f5f9e;
+}
+
+.home-chip-warn {
+  background: #fbf0d9;
+  color: #6e4600;
+}
+
+.home-chip-warn .status-dot {
+  background: #b7791f;
+}
+
+.home-season {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: auto;
+}
+
+.home-season line {
+  stroke: var(--border);
+}
+
+.home-season-area {
+  fill: var(--accent);
+  fill-opacity: 0.08;
+}
+
+.home-season-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.home-season-point {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.home-season-months {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.home-n-scale {
+  margin-top: auto;
+}
+
+.home-search-demo {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.home-search-input {
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-search-input svg {
+  color: var(--muted);
+}
+
+.home-search-result {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--sunken);
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+
+.home-search-result strong {
+  color: var(--text);
+}
+
+.home-pics {
+  flex: 1.4 1 320px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.home-pics figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.home-pics svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.home-pics figcaption {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* Water and nitrogen (NDMI, NDRE) */
+
+.home-wn {
+  flex: 1 1 420px;
+  scroll-margin-top: 24px;
+}
+
+.home-wn-icon-ndmi {
+  background: #e6eef8;
+  color: #2f5f9e;
+}
+
+.home-wn-icon-ndre {
+  background: #eef0d9;
+  color: #5c6b12;
+}
+
+.home-wn-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-wn-title span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.home-wn-text {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+
+.home-wn-formula {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #1f3a26;
+  color: var(--surface);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.home-wn-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-wn-ramp {
+  height: 16px;
+  border-radius: 8px;
+}
+
+.home-wn-ramp span {
+  top: -4px;
+  height: 24px;
+}
+
+.home-wn-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.home-wn-ends strong {
+  color: var(--text);
+}
+
+.home-wn-rules {
+  list-style: none;
+  margin: 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.home-wn-rules li {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.home-wn-rules strong {
+  color: var(--text);
+}
+
+.home-wn-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  transform: translateY(1px);
+}
+
+.home-wn-dot-danger {
+  background: var(--danger);
+}
+
+.home-wn-dot-warn {
+  background: #b7791f;
+}
+
+.home-wn-dot-water {
+  background: #2f5f9e;
+}
+
+.home-wn-dot-ok {
+  background: var(--accent);
 }
 
 /* NDVI explanation */
@@ -580,7 +1082,8 @@ html {
 /* Steps */
 
 .home-step {
-  flex: 1 1 240px;
+  flex: 1 1 200px;
+  background: var(--surface);
   gap: 14px;
 }
 
@@ -606,7 +1109,6 @@ html {
 
 .home-causes {
   flex: 1 1 380px;
-  background: var(--surface);
   gap: 14px;
 }
 
@@ -739,7 +1241,25 @@ html {
   color: var(--muted);
 }
 
+@media (max-width: 960px) {
+  .home-features {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-feature-wide {
+    grid-column: auto;
+  }
+
+  .home-feature-tall {
+    grid-row: auto;
+  }
+}
+
 @media (max-width: 640px) {
+  .home-index-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .home-hero {
     padding-top: 40px;
   }

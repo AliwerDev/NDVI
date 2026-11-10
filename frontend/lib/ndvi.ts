@@ -42,8 +42,10 @@ export type IndexInfo = {
   line: string;
   // A dashed line on the chart. The values mirror the defaults of NDMI_STRESS_THRESHOLD and NDRE_LOW_THRESHOLD.
   threshold: { value: number; label: string } | null;
-  legendLabels: [string, string, string];
-  legendNote: string | null;
+  // Legend: the words and values at both ends of the ramp, and the "?" help text.
+  rampEnds: [{ word: string; value: string }, { word: string; value: string }];
+  helpTitle: string;
+  helpText: string;
   pixel: string;
 };
 
@@ -59,8 +61,12 @@ export const INDICES: Record<IndexName, IndexInfo> = {
     ticks: [0.25, 0.5, 0.75, 1],
     line: "#2e6b3d",
     threshold: null,
-    legendLabels: ["−0.2", "0.35", "0.9"],
-    legendNote: null,
+    rampEnds: [
+      { word: "Oʻsimlik yoʻq", value: "−0.2" },
+      { word: "Zich ekin", value: "0.9" },
+    ],
+    helpTitle: "NDVI — oʻsimlik holati",
+    helpText: "Qizil — oʻsimlik yoʻq yoki kasal, sariq — siyrak, yashil — zich va sogʻlom ekin.",
     pixel: "10 m",
   },
   ndmi: {
@@ -72,8 +78,12 @@ export const INDICES: Record<IndexName, IndexInfo> = {
     ticks: [-0.4, -0.2, 0.2, 0.4, 0.6],
     line: "#2f5f9e",
     threshold: { value: 0, label: "Suv stressi chegarasi" },
-    legendLabels: ["−0.4", "0.1", "0.6"],
-    legendNote: "Jigarrang — quruq, koʻk — nam. 0 dan past qiymat suv stressini bildiradi.",
+    rampEnds: [
+      { word: "Quruq", value: "−0.4" },
+      { word: "Nam", value: "0.6" },
+    ],
+    helpTitle: "NDMI — barg namligi",
+    helpText: "Jigarrang — quruq, koʻk — nam. Qora chiziq (0) dan chapda — suv stressi.",
     pixel: "20 m",
   },
   ndre: {
@@ -85,8 +95,12 @@ export const INDICES: Record<IndexName, IndexInfo> = {
     ticks: [0.2, 0.4, 0.6],
     line: "#5c6b12",
     threshold: { value: 0.2, label: "Azot chegarasi" },
-    legendLabels: ["−0.1", "0.25", "0.6"],
-    legendNote: "Sariq — azot kam, toʻq yashil — azot yetarli. NDVI past boʻlsa, baho berilmaydi.",
+    rampEnds: [
+      { word: "Azot kam", value: "−0.1" },
+      { word: "Yetarli", value: "0.6" },
+    ],
+    helpTitle: "NDRE — azot holati",
+    helpText: "Sariq — azot kam, toʻq yashil — yetarli. Qora chiziq — 0.20 chegarasi. NDVI past boʻlsa, baho berilmaydi.",
     pixel: "20 m",
   },
 };
@@ -137,6 +151,13 @@ export function rampGradient(stops: ColorStops): string {
   return `linear-gradient(to right, ${stops
     .map(([value, color]) => `${color} ${(((value - first) / span) * 100).toFixed(2)}%`)
     .join(", ")})`;
+}
+
+/** Where a value sits on the ramp of an index, in percent. For a threshold mark on a legend. */
+export function rampPercent(index: IndexName, value: number): number {
+  const stops = INDICES[index].stops;
+  const first = stops[0][0];
+  return ((value - first) / (stops[stops.length - 1][0] - first)) * 100;
 }
 
 /** "0.25", "−0.05": a real minus sign, so negative values are easy to read. */

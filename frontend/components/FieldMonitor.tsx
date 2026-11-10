@@ -13,7 +13,6 @@ import {
   FieldsIcon,
   GlobeIcon,
   HistoryIcon,
-  ImageIcon,
   MapIcon,
   PlusIcon,
   SendIcon,
@@ -49,6 +48,7 @@ import {
   INDICES,
   isoDate,
   rampGradient,
+  rampPercent,
   seasonStart,
 } from "@/lib/ndvi";
 
@@ -61,7 +61,7 @@ const LAYERS: { value: FieldLayer; label: string }[] = [
   { value: "ndvi", label: "NDVI" },
   { value: "ndmi", label: "NDMI" },
   { value: "ndre", label: "NDRE" },
-  { value: "rgb", label: "Rangli rasm" },
+  { value: "rgb", label: "Rasm" },
 ];
 
 // While a backfill job runs: check its status every 3 s.
@@ -84,6 +84,7 @@ export default function FieldMonitor() {
   const [layer, setLayer] = useState<FieldLayer>("ndvi");
   // The index of the chart, the selected row and the report. An index layer on the map follows it.
   const [index, setIndex] = useState<IndexName>("ndvi");
+  const [legendHelp, setLegendHelp] = useState(false);
   const [overlayLoading, setOverlayLoading] = useState(false);
   const [basemap, setBasemap] = useState<Basemap>("satellite");
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
@@ -609,8 +610,37 @@ export default function FieldMonitor() {
         <section className="legend" aria-labelledby="layer-label">
           <div className="legend-head">
             <span id="layer-label">Maydon qatlami</span>
-            {selectedObservation && <span>{formatDate(selectedObservation.observed_on)}</span>}
+            {selectedObservation && <span className="legend-date">{formatDate(selectedObservation.observed_on)}</span>}
+            <button
+              type="button"
+              className="legend-help-btn"
+              aria-label="Ranglar nimani bildiradi?"
+              aria-expanded={legendHelp}
+              aria-controls="legend-help"
+              onClick={() => setLegendHelp((open) => !open)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setLegendHelp(false);
+              }}
+            >
+              ?
+            </button>
           </div>
+
+          {legendHelp && (
+            <div id="legend-help" className="legend-help" role="note">
+              <strong>{layer === "rgb" ? "Rangli rasm" : INDICES[layer].helpTitle}</strong>
+              <span>
+                {layer === "rgb"
+                  ? "Dalaning shu kundagi surati, koʻz bilan koʻrgandek. Yashil — oʻsimlik, jigarrang — ochiq tuproq."
+                  : INDICES[layer].helpText}
+              </span>
+              <span className="legend-help-meta">Sentinel-2 · {layer === "rgb" ? "10 m" : INDICES[layer].pixel} piksel</span>
+              <Link href={layer === "ndmi" || layer === "ndre" ? `/#${layer}` : "/#ranglar"} className="legend-help-link">
+                Batafsil
+              </Link>
+            </div>
+          )}
+
           <div role="radiogroup" aria-labelledby="layer-label" className="segmented legend-switch">
             {LAYERS.map(({ value, label }) => {
               const active = layer === value;
@@ -623,17 +653,7 @@ export default function FieldMonitor() {
                   aria-busy={active && overlayLoading}
                   onClick={() => selectLayer(value)}
                 >
-                  {active && overlayLoading ? (
-                    <SpinnerIcon size={14} className="spin" />
-                  ) : value === "rgb" ? (
-                    <ImageIcon size={14} />
-                  ) : (
-                    <span
-                      className="ramp-swatch"
-                      aria-hidden="true"
-                      style={{ background: rampGradient(INDICES[value].stops) }}
-                    />
-                  )}
+                  {active && overlayLoading && <SpinnerIcon size={12} className="spin" />}
                   {label}
                 </button>
               );
@@ -642,40 +662,38 @@ export default function FieldMonitor() {
 
           {layer !== "rgb" ? (
             <>
-              <div className="ramp" aria-hidden="true" style={{ background: rampGradient(INDICES[layer].stops) }} />
-              <div className="ramp-labels">
-                {INDICES[layer].legendLabels.map((text) => (
-                  <span key={text}>{text}</span>
-                ))}
+              <div className="ramp-wrap" aria-hidden="true">
+                <div className="ramp" style={{ background: rampGradient(INDICES[layer].stops) }} />
+                {INDICES[layer].threshold && (
+                  <span
+                    className="ramp-mark"
+                    style={{ left: `calc(${rampPercent(layer, INDICES[layer].threshold!.value)}% - 1px)` }}
+                  />
+                )}
               </div>
-              {selectedObservation && indexValues(selectedObservation, layer) === null ? (
+              <div className="ramp-ends">
+                <span>
+                  <strong>{INDICES[layer].rampEnds[0].word}</strong> · {INDICES[layer].rampEnds[0].value}
+                </span>
+                <span>
+                  {INDICES[layer].rampEnds[1].value} · <strong>{INDICES[layer].rampEnds[1].word}</strong>
+                </span>
+              </div>
+              {selectedObservation && indexValues(selectedObservation, layer) === null && (
                 <p className="legend-note">
-                  Bu kuzatuvda {INDICES[layer].label} yoʻq. Uni koʻrish uchun mavsum tarixini qayta yuklang.
+                  Bu kuzatuvda {INDICES[layer].label} yoʻq. Mavsum tarixini qayta yuklang.
                 </p>
-              ) : (
-                INDICES[layer].legendNote && <p className="legend-note">{INDICES[layer].legendNote}</p>
               )}
-              <div className="legend-foot">
-                <span className="legend-meta">Sentinel-2 · {INDICES[layer].pixel} piksel</span>
-                <Link href="/#ranglar" className="legend-link">
-                  Ranglar nimani bildiradi?
-                </Link>
-              </div>
             </>
           ) : (
-            <>
-              <p className="legend-note">
-                Dalaning shu kundagi surati, koʻz bilan koʻrgandek. Yashil — oʻsimlik, jigarrang — ochiq tuproq.
-              </p>
-              <p className="legend-meta">
-                <span className="rgb-swatches" aria-hidden="true">
-                  <span style={{ background: "#45592b" }} />
-                  <span style={{ background: "#7a7a4c" }} />
-                  <span style={{ background: "#ae9a70" }} />
-                </span>
-                Sentinel-2 · 10 m piksel
-              </p>
-            </>
+            <p className="legend-meta">
+              <span className="rgb-swatches" aria-hidden="true">
+                <span style={{ background: "#45592b" }} />
+                <span style={{ background: "#7a7a4c" }} />
+                <span style={{ background: "#ae9a70" }} />
+              </span>
+              Koʻz bilan koʻrgandek surat
+            </p>
           )}
         </section>
       </main>

@@ -203,3 +203,16 @@ export const FieldsIcon = icon(
   </>,
   { strokeWidth: 1.8 },
 );
+
+export const LayersIcon = icon(
+  <>
+    <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+    <path d="m2 17 10 5 10-5" />
+    <path d="m2 12 10 5 10-5" />
+  </>,
+  { strokeWidth: 1.8 },
+);
+
+export const DropletIcon = icon(<path d="M12 2.7c3.5 4 6 7.4 6 10.8a6 6 0 0 1-12 0c0-3.4 2.5-6.8 6-10.8Z" />, {
+  strokeWidth: 1.8,
+});
