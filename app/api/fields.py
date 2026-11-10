@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser, DbSession
 from app.config import get_settings
 from app.models import Field, User
+from app.services.area import polygon_area_ha
 from app.services.stac import Scene, find_best_scene
 from app.schemas.field import (
     FieldCreate,
@@ -33,10 +34,11 @@ def _to_db_geometry(geometry: PolygonGeometry) -> WKBElement:
 
 def _to_feature(field: Field) -> FieldFeature:
     """Convert a Field row to a GeoJSON Feature."""
+    polygon = to_shape(field.geometry)
     return FieldFeature(
         id=field.id,
-        geometry=PolygonGeometry.model_validate(mapping(to_shape(field.geometry))),
-        properties=FieldProperties(name=field.name, created_at=field.created_at),
+        geometry=PolygonGeometry.model_validate(mapping(polygon)),
+        properties=FieldProperties(name=field.name, created_at=field.created_at, area_ha=polygon_area_ha(polygon)),
     )
 
 

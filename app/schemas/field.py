@@ -55,6 +55,8 @@ class FieldUpdate(BaseModel):
 class FieldProperties(BaseModel):
     name: str
     created_at: datetime
+    # Computed from the geometry on each response. Not stored.
+    area_ha: float
 
 
 class FieldFeature(BaseModel):

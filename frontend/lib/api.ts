@@ -15,7 +15,7 @@ export type FieldFeature = {
   type: "Feature";
   id: number;
   geometry: Polygon;
-  properties: { name: string; created_at: string };
+  properties: { name: string; created_at: string; area_ha: number };
 };
 
 export type Observation = {

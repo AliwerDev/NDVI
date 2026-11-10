@@ -2,11 +2,13 @@
 
 from dataclasses import dataclass
 
+from geoalchemy2.shape import to_shape
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.bot import messages
 from app.models import Field, User
+from app.services.area import format_area, polygon_area_ha
 from app.services.auth import LinkResult, TelegramIdentity, confirm_telegram_login, use_link_code
 from app.services.history import latest_observation
 
@@ -63,6 +65,7 @@ def list_user_fields(db: Session, telegram_user_id: int) -> str:
                 latest.observed_on if latest else None,
                 latest.ndmi_mean if latest else None,
                 latest.ndre_mean if latest else None,
+                format_area(polygon_area_ha(to_shape(field.geometry))),
             )
         )
     return messages.fields_list(lines)

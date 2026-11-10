@@ -63,6 +63,8 @@ def test_create_returns_feature(db_client: TestClient) -> None:
     assert feature["geometry"] == SQUARE
     assert feature["properties"]["name"] == "Paxta-1"
     assert feature["properties"]["created_at"]
+    # 0.01° × 0.01° near Tashkent: about 1113 m × 836 m.
+    assert feature["properties"]["area_ha"] == pytest.approx(93.1, abs=0.1)
 
 
 def test_get_field(db_client: TestClient) -> None:

@@ -216,3 +216,10 @@ export const LayersIcon = icon(
 export const DropletIcon = icon(<path d="M12 2.7c3.5 4 6 7.4 6 10.8a6 6 0 0 1-12 0c0-3.4 2.5-6.8 6-10.8Z" />, {
   strokeWidth: 1.8,
 });
+
+export const AreaIcon = icon(
+  <>
+    <path d="M4 4h16v16H4z" />
+    <path d="M4 9h3M4 14h3M9 4v3M14 4v3" />
+  </>,
+);

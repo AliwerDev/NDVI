@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIcon,
   AlertIcon,
+  AreaIcon,
   CheckIcon,
   CloseIcon,
   CrosshairIcon,
@@ -13,6 +14,7 @@ import {
   FieldsIcon,
   GlobeIcon,
   HistoryIcon,
+  InfoIcon,
   MapIcon,
   PlusIcon,
   SendIcon,
@@ -39,6 +41,7 @@ import {
   type Position,
   type User,
 } from "@/lib/api";
+import { formatArea, formatSotix, ringAreaHa, SMALL_FIELD_HA } from "@/lib/geo";
 import {
   daysAgo,
   formatDate,
@@ -107,6 +110,7 @@ export default function FieldMonitor() {
   const [urlRestored, setUrlRestored] = useState(false);
 
   const selectedField = fields.find((field) => field.id === selectedId) ?? null;
+  const draftArea = ringAreaHa(draftPoints);
   // The field check drops a late response for a field that is no longer selected.
   const backfillRunning = backfillJob?.status === "running" && backfillJob.field_id === selectedId;
 
@@ -406,6 +410,25 @@ export default function FieldMonitor() {
               <CrosshairIcon size={18} className="accent-icon" />
               <span>Xaritada maydon burchaklarini bosing. Kamida 3 ta nuqta kerak.</span>
             </p>
+            <div className="area-row">
+              <span className="area-label">Yuzasi</span>
+              {draftPoints.length < 3 ? (
+                <span className="area-extra">3-nuqtadan keyin koʻrinadi</span>
+              ) : (
+                <span className="area-value">
+                  <strong>≈ {formatArea(draftArea)}</strong>
+                  {draftArea < SMALL_FIELD_HA && <span className="area-extra">{formatSotix(draftArea)}</span>}
+                </span>
+              )}
+            </div>
+            {draftPoints.length >= 3 && draftArea < SMALL_FIELD_HA && (
+              <p className="hint hint-warn">
+                <InfoIcon size={18} />
+                <span>
+                  Maydon 0.5 gektardan kichik. Chegaradagi piksellar (yoʻl, ariq, daraxt) natijaga koʻproq taʼsir qiladi.
+                </span>
+              </p>
+            )}
             <div className="input-group">
               <label htmlFor="field-name" className="label">
                 Maydon nomi
@@ -478,7 +501,7 @@ export default function FieldMonitor() {
                     >
                       <span className="field-id">{field.id}.</span>
                       <span className="field-name">{field.properties.name}</span>
-                      {active && <CheckIcon size={16} className="accent-icon" />}
+                      <span className="field-area">{formatArea(field.properties.area_ha)}</span>
                     </button>
                   </li>
                 );
@@ -495,6 +518,13 @@ export default function FieldMonitor() {
                 <h2 id="sf-title" className="serif-title">
                   {selectedField.properties.name}
                 </h2>
+                <span className="field-size">
+                  <AreaIcon size={16} className="accent-icon" />
+                  <strong>{formatArea(selectedField.properties.area_ha)}</strong>
+                  {selectedField.properties.area_ha < SMALL_FIELD_HA && (
+                    <span>{formatSotix(selectedField.properties.area_ha)}</span>
+                  )}
+                </span>
               </div>
               <div className="stack">
                 <button type="button" className="btn btn-primary" onClick={computeNdvi} disabled={busy}>

@@ -40,7 +40,7 @@ def test_fields_command_lists_the_users_fields(db_session: Session, field: Field
 
     save_observation(db_session, field.id, make_result(18, 0.634))
     text = list_user_fields(db_session, TELEGRAM_USER_ID)
-    assert "Paxta-1 — NDVI 0.63 (18.10.2026)" in text
+    assert "Paxta-1 (93.1 ga) — NDVI 0.63 (18.10.2026)" in text
 
 
 def test_alert_message_is_uzbek() -> None:

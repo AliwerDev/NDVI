@@ -506,7 +506,52 @@ p {
 }
 
 .hint svg {
+  flex: none;
   margin-top: 1px;
+}
+
+.hint-warn {
+  background: #fbf0d9;
+  color: #6e4600;
+}
+
+.hint-warn svg {
+  color: #b7791f;
+}
+
+/* Field area while drawing */
+
+.area-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.area-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.area-value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.area-value strong {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.area-extra {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 /* Inputs */
@@ -594,6 +639,18 @@ p {
   color: var(--accent);
 }
 
+.field-row .field-area {
+  flex: none;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.field-row.active .field-area {
+  color: var(--accent-text);
+}
+
 /* Empty states */
 
 .empty {
@@ -626,6 +683,20 @@ p {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.field-size {
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.field-size strong {
+  color: var(--text);
 }
 
 .btn-telegram {

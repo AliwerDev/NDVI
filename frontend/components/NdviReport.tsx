@@ -7,6 +7,7 @@ import NdviChart from "@/components/NdviChart";
 import ObservationStats from "@/components/ObservationStats";
 import IndexTabs from "@/components/IndexTabs";
 import type { FieldFeature, Observation } from "@/lib/api";
+import { formatArea } from "@/lib/geo";
 import { formatDateLong, formatIndex, INDEX_NAMES, type IndexName, indexColor, indexValues, INDICES } from "@/lib/ndvi";
 
 type Props = {
@@ -53,11 +54,10 @@ export default function NdviReport({ field, observations, selected, onSelect, in
             <h2 id="report-title" className="serif-title">
               {field.properties.name}
             </h2>
-            {period && (
-              <span className="meta">
-                {observations.length} ta kuzatuv · {period}
-              </span>
-            )}
+            <span className="meta">
+              {formatArea(field.properties.area_ha)}
+              {period && ` · ${observations.length} ta kuzatuv · ${period}`}
+            </span>
           </div>
           <button ref={closeRef} type="button" className="icon-btn" aria-label="Yopish" onClick={onClose}>
             <CloseIcon size={20} />

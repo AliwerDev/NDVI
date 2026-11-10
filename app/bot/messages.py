@@ -39,8 +39,11 @@ def field_line(
     observed_on: date | None,
     ndmi: float | None = None,
     ndre: float | None = None,
+    area: str | None = None,
 ) -> str:
     """One line of the /fields list. NDMI and NDRE are left out when the observation has no value for them."""
+    if area is not None:
+        field_name = f"{field_name} ({area})"
     if ndvi is None or observed_on is None:
         return f"{field_id}. {field_name} — hali NDVI maʼlumoti yoʻq"
     values = [f"NDVI {ndvi:.2f}"]
