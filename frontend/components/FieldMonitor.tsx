@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ActivityIcon,
@@ -104,7 +104,9 @@ export default function FieldMonitor() {
   const [userLoaded, setUserLoaded] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const [busy, setBusy] = useState(false);
+  // A counter, not a flag: the first finished action must not enable the buttons while another one runs.
+  const [pending, setPending] = useState(0);
+  const busy = pending > 0;
   const [computing, setComputing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +123,7 @@ export default function FieldMonitor() {
 
   // Run an API action, show its error, and keep the buttons disabled while it runs.
   const run = useCallback(async (action: () => Promise<void>) => {
-    setBusy(true);
+    setPending((count) => count + 1);
     setError(null);
     setMessage(null);
     try {
@@ -129,7 +131,7 @@ export default function FieldMonitor() {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      setPending((count) => count - 1);
     }
   }, []);
 
@@ -137,8 +139,15 @@ export default function FieldMonitor() {
     setFields(await api.listFields());
   }, []);
 
+  // A late response for a field that is no longer selected is dropped.
+  const selectedIdRef = useRef(selectedId);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
   const loadHistory = useCallback(async (fieldId: number) => {
     const observations = await api.history(fieldId);
+    if (selectedIdRef.current !== fieldId) return null;
     setHistory(observations);
     return observations;
   }, []);
@@ -182,20 +191,18 @@ export default function FieldMonitor() {
     setReportOpen(false);
     setHistoryLoading(selectedId !== null);
     if (selectedId === null) return;
-    // After a quick switch to another field, the old request must not end the new field's loading state.
-    let cancelled = false;
-    run(async () => {
-      try {
-        const observations = await loadHistory(selectedId);
-        if (observations.length > 0) setSelectedObservation(observations[observations.length - 1]);
-      } finally {
-        if (!cancelled) setHistoryLoading(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId, run, loadHistory]);
+    // Not through run(): run() clears the toasts, and the "field saved" message must stay.
+    loadHistory(selectedId)
+      .then((observations) => {
+        if (observations && observations.length > 0) setSelectedObservation(observations[observations.length - 1]);
+      })
+      .catch((err) => {
+        if (selectedIdRef.current === selectedId) setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (selectedIdRef.current === selectedId) setHistoryLoading(false);
+      });
+  }, [selectedId, loadHistory]);
 
   // A job can already run for this field: started in another tab, or before a page reload.
   useEffect(() => {
@@ -262,7 +269,11 @@ export default function FieldMonitor() {
 
   // The old image stays on the map until the new one is ready, so the field does not flash empty.
   useEffect(() => {
-    if (!selectedObservation) return;
+    // The cleanup of a cancelled request skips its finally, so the spinner stops here.
+    if (!selectedObservation) {
+      setOverlayLoading(false);
+      return;
+    }
     // An observation from before NDMI and NDRE were added has no file for them. The legend explains it.
     if (layer !== "rgb" && indexValues(selectedObservation, layer) === null) {
       setOverlay(null);
@@ -336,8 +347,7 @@ export default function FieldMonitor() {
     setComputing(true);
     run(async () => {
       const observation = await api.computeNdvi(selectedField.id, daysAgo(30), isoDate(new Date()));
-      await loadHistory(selectedField.id);
-      setSelectedObservation(observation);
+      if (await loadHistory(selectedField.id)) setSelectedObservation(observation);
       setMessage(
         `Indekslar hisoblandi: ${formatDate(observation.observed_on)}, oʻrtacha NDVI ${formatIndex(observation.ndvi_mean)}.`,
       );
