@@ -32,15 +32,25 @@ def test_parse_start_payload(args: str | None, expected: StartPayload | None) ->
     assert parse_start_payload(args) == expected
 
 
+TODAY = date(2026, 10, 20)
+
+
 def test_fields_command_lists_the_users_fields(db_session: Session, field: Field) -> None:
     # A Telegram account without a website account sees no fields.
-    assert list_user_fields(db_session, 42) == messages.NO_FIELDS
+    assert list_user_fields(db_session, 42, TODAY) == [messages.NO_FIELDS]
 
-    assert "hali NDVI" in list_user_fields(db_session, TELEGRAM_USER_ID)
+    [text] = list_user_fields(db_session, TELEGRAM_USER_ID, TODAY)
+    assert "Hali oʻlchov yoʻq" in text
 
-    save_observation(db_session, field.id, make_result(18, 0.634))
-    text = list_user_fields(db_session, TELEGRAM_USER_ID)
-    assert "Paxta-1 (93.1 ga) — NDVI 0.63 (18.10.2026)" in text
+    save_observation(db_session, field.id, make_result(18, 0.634, ndmi=-0.05, ndre=0.181))
+    [text] = list_user_fields(db_session, TELEGRAM_USER_ID, TODAY)
+    assert text.startswith("🌾 <b>Maydonlaringiz</b> — 1 ta")
+    assert "<b>1. Paxta-1</b> · 93.1 ga" in text
+    assert "🟢 Oʻsimlik holati (NDVI): <b>0.63</b> — Yaxshi" in text
+    assert "🔴 Barg namligi (NDMI): <b>-0.05</b> — Suv stressi" in text
+    assert "🔴 Azot (NDRE): <b>0.18</b> — Kam" in text
+    assert "📅 Oxirgi oʻlchov: 18.10.2026 (2 kun oldin)" in text
+    assert text.endswith("/weather")
 
 
 def test_alert_message_is_uzbek() -> None:
@@ -113,10 +123,24 @@ def test_alerts_stay_pending_without_token(
     assert len(pending_alerts(db_session)) == 1
 
 
-def test_fields_line_shows_ndmi_and_ndre_when_present() -> None:
-    line = messages.field_line(3, "Paxta-1", 0.634, date(2026, 10, 18), -0.05, 0.181)
+def test_field_card_without_ndmi_and_ndre() -> None:
+    card = messages.field_card(2, "Bog' <A&B>", "1.1 ga", TODAY, TODAY, 0.31, None, None, None, 0.0)
 
-    assert line == "3. Paxta-1 — NDVI 0.63, NDMI -0.05, NDRE 0.18 (18.10.2026)"
+    # The name comes from the user, so it is escaped for Telegram HTML.
+    assert card == (
+        "<b>2. Bog' &lt;A&amp;B&gt;</b> · 1.1 ga\n"
+        "⚪ Oʻsimlik holati (NDVI): <b>0.31</b> — Oʻrtacha\n"
+        "📅 Oxirgi oʻlchov: 20.10.2026 (bugun)"
+    )
+
+
+def test_field_card_shows_unknown_nitrogen_for_sparse_plants() -> None:
+    card = messages.field_card(1, "Paxta-1", "9 ga", TODAY, date(2026, 10, 19), 0.12, 0.25, 0.07, "unknown", 0.0)
+
+    assert "🟡 Oʻsimlik holati (NDVI): <b>0.12</b> — Siyrak" in card
+    assert "🟢 Barg namligi (NDMI): <b>0.25</b> — Nam" in card
+    assert "⚪ Azot (NDRE): <b>0.07</b> — Baho yoʻq, ekin siyrak" in card
+    assert "(kecha)" in card
 
 
 def test_ndmi_messages() -> None:

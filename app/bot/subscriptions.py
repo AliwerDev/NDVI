@@ -15,6 +15,7 @@ from app.services.area import format_area, polygon_area_ha
 from app.services.auth import LinkResult, TelegramIdentity, confirm_telegram_login, use_link_code
 from app.services.field_weather import weather_advice
 from app.services.history import latest_observation
+from app.services.recommendations import nitrogen_level
 from app.services.weather import Cell, WeatherError, fetch_forecast, field_cell, has_day, list_days, upsert_days
 
 logger = logging.getLogger(__name__)
@@ -63,27 +64,31 @@ def _user_fields(db: Session, telegram_user_id: int) -> list[Field]:
     return list(db.scalars(select(Field).where(Field.owner_id == user.id).order_by(Field.id)))
 
 
-def list_user_fields(db: Session, telegram_user_id: int) -> str:
-    """Show the fields of the account that this Telegram account belongs to, with the latest NDVI."""
+def list_user_fields(db: Session, telegram_user_id: int, today: date) -> list[str]:
+    """The fields of the account with the latest observation. Returns the messages to send, in Telegram HTML."""
     fields = _user_fields(db, telegram_user_id)
     if not fields:
-        return messages.NO_FIELDS
+        return [messages.NO_FIELDS]
 
-    lines = []
-    for field in fields:
+    settings = get_settings()
+    cards = []
+    for number, field in enumerate(fields, start=1):
         latest = latest_observation(db, field.id)
-        lines.append(
-            messages.field_line(
-                field.id,
+        cards.append(
+            messages.field_card(
+                number,
                 field.name,
-                latest.ndvi_mean if latest else None,
+                format_area(polygon_area_ha(to_shape(field.geometry))),
+                today,
                 latest.observed_on if latest else None,
+                latest.ndvi_mean if latest else None,
                 latest.ndmi_mean if latest else None,
                 latest.ndre_mean if latest else None,
-                format_area(polygon_area_ha(to_shape(field.geometry))),
+                nitrogen_level(latest.ndre_mean, latest.ndvi_mean, settings) if latest else None,
+                settings.ndmi_stress_threshold,
             )
         )
-    return messages.fields_list(lines)
+    return messages.fields_reply(cards)
 
 
 def _ensure_forecast(db: Session, cell: Cell, today: date) -> None:

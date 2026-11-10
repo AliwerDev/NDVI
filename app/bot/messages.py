@@ -1,6 +1,7 @@
 """User-facing bot texts in Uzbek (Latin script)."""
 
 from datetime import date, timedelta
+from html import escape
 
 # Telegram does not send a longer message.
 MESSAGE_LIMIT = 4096
@@ -8,7 +9,7 @@ MESSAGE_LIMIT = 4096
 # The bot menu. The bot sends this list to Telegram when it starts.
 COMMANDS = (
     ("start", "Bot haqida va qanday ulanish"),
-    ("fields", "Maydonlarim va oxirgi NDVI"),
+    ("fields", "Maydonlarim va oxirgi oʻlchov"),
     ("weather", "Ob-havo prognozi va maslahatlar"),
 )
 
@@ -45,30 +46,76 @@ def _format_date(day: date) -> str:
     return day.strftime("%d.%m.%Y")
 
 
-def field_line(
-    field_id: int,
+_TONE_MARKS = {"danger": "🔴", "warn": "🟡", "ok": "🟢", "neutral": "⚪"}
+
+# Status words and limits of the monitoring page (frontend/components/ObservationStats.tsx).
+_NDMI_MOIST = 0.2
+_NITROGEN_STATUS = {
+    "low": ("Kam", "danger"),
+    "medium": ("Oʻrtacha", "warn"),
+    "ok": ("Yetarli", "ok"),
+    "unknown": ("Baho yoʻq, ekin siyrak", "neutral"),
+}
+
+
+def _ndvi_status(ndvi: float) -> tuple[str, str]:
+    if ndvi < 0.2:
+        return "Siyrak", "warn"
+    return ("Oʻrtacha", "neutral") if ndvi < 0.4 else ("Yaxshi", "ok")
+
+
+def _ndmi_status(ndmi: float, stress_threshold: float) -> tuple[str, str]:
+    if ndmi < stress_threshold:
+        return "Suv stressi", "danger"
+    return ("Oʻrtacha", "warn") if ndmi < _NDMI_MOIST else ("Nam", "ok")
+
+
+def _index_row(title: str, value: float, status: tuple[str, str]) -> str:
+    text, tone = status
+    return f"{_TONE_MARKS[tone]} {title}: <b>{value:.2f}</b> — {text}"
+
+
+def _days_ago(day: date, today: date) -> str:
+    days = (today - day).days
+    if days <= 0:
+        return "bugun"
+    if days == 1:
+        return "kecha"
+    return f"{days} kun oldin"
+
+
+def field_card(
+    number: int,
     field_name: str,
-    ndvi: float | None,
+    area: str,
+    today: date,
     observed_on: date | None,
-    ndmi: float | None = None,
-    ndre: float | None = None,
-    area: str | None = None,
+    ndvi: float | None,
+    ndmi: float | None,
+    ndre: float | None,
+    nitrogen_level: str | None,
+    ndmi_stress_threshold: float,
 ) -> str:
-    """One line of the /fields list. NDMI and NDRE are left out when the observation has no value for them."""
-    if area is not None:
-        field_name = f"{field_name} ({area})"
-    if ndvi is None or observed_on is None:
-        return f"{field_id}. {field_name} — hali NDVI maʼlumoti yoʻq"
-    values = [f"NDVI {ndvi:.2f}"]
+    """One field of the /fields reply, in Telegram HTML. NDMI and NDRE rows are left out without a value."""
+    lines = [f"<b>{number}. {escape(field_name, quote=False)}</b> · {area}"]
+    if observed_on is None or ndvi is None:
+        lines.append("⚪ Hali oʻlchov yoʻq. Saytda «NDVI hisoblash» tugmasini bosing.")
+        return "\n".join(lines)
+
+    lines.append(_index_row("Oʻsimlik holati (NDVI)", ndvi, _ndvi_status(ndvi)))
     if ndmi is not None:
-        values.append(f"NDMI {ndmi:.2f}")
-    if ndre is not None:
-        values.append(f"NDRE {ndre:.2f}")
-    return f"{field_id}. {field_name} — {', '.join(values)} ({_format_date(observed_on)})"
+        lines.append(_index_row("Barg namligi (NDMI)", ndmi, _ndmi_status(ndmi, ndmi_stress_threshold)))
+    if ndre is not None and nitrogen_level is not None:
+        lines.append(_index_row("Azot (NDRE)", ndre, _NITROGEN_STATUS[nitrogen_level]))
+    lines.append(f"📅 Oxirgi oʻlchov: {_format_date(observed_on)} ({_days_ago(observed_on, today)})")
+    return "\n".join(lines)
 
 
-def fields_list(lines: list[str]) -> str:
-    return "Ulangan maydonlar:\n\n" + "\n".join(lines)
+def fields_reply(cards: list[str]) -> list[str]:
+    """The /fields reply: a title, a card per field, and a hint to /weather. Long replies are split."""
+    title = f"🌾 <b>Maydonlaringiz</b> — {len(cards)} ta"
+    footer = "Ob-havo va sugʻorish maslahati: /weather"
+    return split_messages([title, *cards, footer])
 
 
 def ndvi_drop_alert(
@@ -176,6 +223,12 @@ def irrigation_line(text: str) -> str:
     return f"💧 Sugʻorish: {text}"
 
 
+def _degrees(value: float) -> str:
+    # -0.3 rounds to "-0", which reads like an error.
+    text = f"{value:.0f}"
+    return "0" if text == "-0" else text
+
+
 def forecast_day_line(
     day: date,
     today: date,
@@ -195,7 +248,7 @@ def forecast_day_line(
 
     values = []
     if t_min is not None and t_max is not None:
-        values.append(f"{t_min:.0f}…{t_max:.0f} °C")
+        values.append(f"{_degrees(t_min)}…{_degrees(t_max)} °C")
     if precipitation is not None:
         values.append(f"yogʻin {precipitation:.0f} mm")
     if wind_max is not None:

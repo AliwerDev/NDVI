@@ -57,7 +57,8 @@ async def handle_fields(message: Message) -> None:
     if identity is None:
         await message.answer(messages.NO_FIELDS)
         return
-    await message.answer(await _run_db(list_user_fields, identity.id))
+    for part in await _run_db(list_user_fields, identity.id, local_today()):
+        await message.answer(part, parse_mode="HTML")
 
 
 @router.message(Command("weather"))

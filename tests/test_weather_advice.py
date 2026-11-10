@@ -204,6 +204,13 @@ def test_forecast_day_marks_frost_and_heat() -> None:
     assert heat == "Bugun, 20.10: 25…42 °C 🔥 jazirama"
 
 
+def test_forecast_day_has_no_negative_zero() -> None:
+    line = messages.forecast_day_line(TODAY, TODAY, -0.3, 5.0, 7.0, 2.0, 0.0, 40.0)
+
+    assert line.startswith("Bugun, 20.10: 0…5 °C")
+    assert line.endswith("❄️ sovuq")
+
+
 def test_long_weather_reply_is_split() -> None:
     blocks = ["a" * 3000, "b" * 1000, "c" * 100]
 
