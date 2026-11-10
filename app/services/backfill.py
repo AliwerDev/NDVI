@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import BackfillJob, Field, NdviObservation
 from app.models.backfill_job import STATUS_DONE, STATUS_FAILED, STATUS_RUNNING
 from app.services.history import backfill_field
+from app.services.weather import WeatherError, fill_history, local_today
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,12 @@ def run_job(db: Session, job_id: int) -> None:
         if failed_job is not None:
             _finish(db, failed_job, STATUS_FAILED)
         return
+
+    # The chart shows the rain of the same season. Without the weather the NDVI history is still useful.
+    try:
+        fill_history(db, field, job.start, job.end, local_today())
+    except WeatherError:
+        logger.warning("Backfill job %s: weather history failed for field %s", job_id, job.field_id, exc_info=True)
 
     _finish(db, job, STATUS_DONE)
     logger.info("Backfill job %s for field %s saved %d observations", job_id, job.field_id, job.saved_count)

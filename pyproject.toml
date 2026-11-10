@@ -19,6 +19,8 @@ dependencies = [
     "numpy>=2.0",
     "apscheduler>=3.10,<4",
     "aiogram>=3.13",
+    # HTTP client for the Open-Meteo weather API.
+    "httpx>=0.27",
     # Time zone data for Asia/Tashkent; the slim Docker image has no system time zone files.
     "tzdata>=2024.1",
 ]
@@ -26,7 +28,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.0",
-    "httpx>=0.27",
 ]
 
 [tool.uv]
