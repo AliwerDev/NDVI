@@ -212,7 +212,7 @@ class WeatherSummary:
     @property
     def balance(self) -> float:
         """Rain minus reference evapotranspiration, in mm. A negative value means that the soil loses water."""
-        return self.precipitation - self.et0
+        return round(self.precipitation - self.et0, 1)
 
 
 def summary_before(db: Session, cell: Cell, day: date, n: int = 7) -> WeatherSummary | None:

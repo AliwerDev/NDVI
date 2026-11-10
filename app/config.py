@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     # Only fields with growing plants get the warnings: an observation of the last N days
     # has mean NDVI >= NDRE_MIN_NDVI. So a bare field in winter gets no frost message every day.
     growing_lookback_days: int = 30
+    # Irrigation: water loss (ET0 minus rain of the last 7 days) that needs watering, in mm.
+    irrigation_deficit_mm: float = 20.0
+    # This much rain in the next 3 days lets the farmer wait with the watering, in mm.
+    rain_skip_mm: float = 10.0
+    # Spray and fertilizer day: a forecast day with less rain (mm) and less maximum wind (m/s) than these values.
+    # The forecast gives the daily maximum wind. Morning wind is usually lower.
+    spray_max_rain_mm: float = 1.0
+    spray_max_wind: float = 5.0
 
     # Telegram. Without a token the bot does not start and alerts are not sent.
     telegram_bot_token: str | None = None

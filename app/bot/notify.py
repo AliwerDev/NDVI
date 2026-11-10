@@ -18,6 +18,7 @@ from app.models import Alert, Field, NdviObservation, WeatherAlert
 from app.models.alert import ALERT_NDMI_STRESS, ALERT_NDRE_LOW
 from app.models.weather import WEATHER_FROST
 from app.services.alerts import pending_alerts
+from app.services.field_weather import weather_advice
 from app.services.recommendations import nitrogen_advice
 from app.services.weather import field_cell, local_today, summary_before
 from app.services.weather_alerts import pending_weather_alerts
@@ -59,7 +60,8 @@ def _index_text(db: Session, alert: Alert, current: NdviObservation, field_name:
 def alert_text(db: Session, alert: Alert, field: Field, settings: Settings) -> str | None:
     """The Telegram text of an index alert, or None if its observations are gone.
 
-    The weather of the days before the observation is added when it is stored.
+    The weather of the days before the observation is added when it is stored,
+    and the irrigation or spray advice for a water stress or nitrogen alert.
     """
     current = db.get(NdviObservation, alert.observation_id)
     if current is None:
@@ -67,10 +69,19 @@ def alert_text(db: Session, alert: Alert, field: Field, settings: Settings) -> s
     text = _index_text(db, alert, current, field.name, settings)
     if text is None:
         return None
+    lines = [text]
     summary = summary_before(db, field_cell(field), current.observed_on)
-    if summary is None:
-        return text
-    return text + "\n\n" + messages.weather_context(summary.days, summary.precipitation, summary.et0, summary.t_max)
+    if summary is not None:
+        lines.append(messages.weather_context(summary.days, summary.precipitation, summary.et0, summary.t_max))
+
+    # Water stress asks for irrigation, low nitrogen asks for fertilizer: add the advice from today's forecast.
+    if alert.kind in (ALERT_NDMI_STRESS, ALERT_NDRE_LOW):
+        advice = weather_advice(db, field, local_today(settings), settings)
+        if alert.kind == ALERT_NDMI_STRESS and advice.irrigation is not None:
+            lines.append(messages.irrigation_line(advice.irrigation.text))
+        if alert.kind == ALERT_NDRE_LOW and advice.has_forecast:
+            lines.append(messages.spray_line(advice.spray_day))
+    return "\n\n".join(lines)
 
 
 def weather_alert_text(alert: WeatherAlert, field_name: str, settings: Settings) -> str:

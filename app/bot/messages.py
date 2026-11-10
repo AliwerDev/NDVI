@@ -157,3 +157,14 @@ def heat_alert(field_name: str, first: date, last: date, t_max: float, threshold
         "Sugʻorishni kechiktirmang, uni erta tongda yoki kechqurun qiling. "
         "Issiq soatlarda purkash va oʻgʻitlash qilmang."
     )
+
+
+def irrigation_line(text: str) -> str:
+    return f"💧 Sugʻorish: {text}"
+
+
+def spray_line(day: date | None) -> str:
+    """The forecast day for spraying or fertilizing."""
+    if day is None:
+        return "🧴 Keyingi kunlarda purkash va oʻgʻitlash uchun qulay kun yoʻq: yogʻin yoki kuchli shamol kutilmoqda."
+    return f"🧴 Purkash va oʻgʻitlash uchun qulay kun: {_format_date(day)} (prognoz: yogʻinsiz, shamol sust)."

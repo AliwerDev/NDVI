@@ -1,9 +1,16 @@
-"""Nitrogen advice from NDRE. The website and the Telegram bot show the same text."""
+"""Advice for the farmer: nitrogen from NDRE, irrigation from the weather and NDMI, a day for spraying.
 
+The website and the Telegram bot show the same text.
+"""
+
+from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 from typing import Literal
 
 from app.config import Settings
+from app.models import WeatherDay
+from app.services.weather import WeatherSummary
 
 NitrogenLevel = Literal["low", "medium", "ok", "unknown"]
 
@@ -52,3 +59,64 @@ def nitrogen_advice(ndre_mean: float | None, ndvi_mean: float, settings: Setting
         low_threshold=settings.ndre_low_threshold,
         ok_threshold=settings.ndre_ok_threshold,
     )
+
+
+IrrigationLevel = Literal["needed", "wait_rain", "ok"]
+
+
+@dataclass(frozen=True)
+class IrrigationAdvice:
+    level: IrrigationLevel
+    text: str
+    # ET0 minus rain of the last 7 days, in mm. A positive value means that the soil lost water.
+    deficit_mm: float
+    forecast_rain_mm: float
+
+
+def irrigation_advice(
+    ndmi_mean: float | None, summary: WeatherSummary | None, forecast_rain: float, settings: Settings
+) -> IrrigationAdvice | None:
+    """Irrigation advice from the water balance of the last 7 days, or None without weather data.
+
+    A low NDMI also asks for water, because the leaves already show the stress.
+    """
+    if summary is None:
+        return None
+    deficit = round(summary.et0 - summary.precipitation, 1)
+    dry_leaves = ndmi_mean is not None and ndmi_mean < settings.ndmi_stress_threshold
+    balance = (
+        f"Oxirgi {summary.days} kunda bugʻlanish (ET0) {summary.et0:.0f} mm, yogʻin {summary.precipitation:.0f} mm."
+    )
+
+    if deficit < settings.irrigation_deficit_mm and not dry_leaves:
+        level: IrrigationLevel = "ok"
+        text = f"{balance} Hozir qoʻshimcha sugʻorish shart emas."
+    elif forecast_rain >= settings.rain_skip_mm:
+        level = "wait_rain"
+        text = (
+            f"{balance} Keyingi 3 kunda {forecast_rain:.0f} mm yogʻin kutilmoqda: "
+            "sugʻorishni yomgʻirdan keyingacha kechiktirsa boʻladi."
+        )
+    else:
+        level = "needed"
+        leaves = " Barglar namligi ham past (NDMI)." if dry_leaves else ""
+        text = f"{balance} Tuproq taxminan {max(deficit, 0):.0f} mm suv yoʻqotdi.{leaves} Sugʻorishni rejalang."
+    return IrrigationAdvice(level=level, text=text, deficit_mm=deficit, forecast_rain_mm=round(forecast_rain, 1))
+
+
+def forecast_rain(days: Sequence[WeatherDay], count: int = 3) -> float:
+    """Rain of the first `count` forecast days, in mm. Empty values count as 0."""
+    return sum(d.precipitation or 0.0 for d in days[:count])
+
+
+def spray_day(days: Sequence[WeatherDay], settings: Settings) -> date | None:
+    """The first forecast day without rain and strong wind, for spraying or fertilizing. None if there is none."""
+    for d in days:
+        if (
+            d.precipitation is not None
+            and d.wind_max is not None
+            and d.precipitation < settings.spray_max_rain_mm
+            and d.wind_max < settings.spray_max_wind
+        ):
+            return d.day
+    return None
