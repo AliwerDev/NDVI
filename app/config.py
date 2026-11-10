@@ -47,6 +47,16 @@ class Settings(BaseSettings):
     # A field without observations is searched for this many days back.
     scheduler_lookback_days: int = 10
 
+    # Weather (Open-Meteo). The free API is for non-commercial use only.
+    # A commercial plan gives an API key and its own host: change the URLs and set the key.
+    open_meteo_url: str = "https://api.open-meteo.com/v1/forecast"
+    open_meteo_archive_url: str = "https://archive-api.open-meteo.com/v1/archive"
+    open_meteo_api_key: str | None = None
+    weather_timeout_seconds: float = 20.0
+    # The daily update stores this many past days and forecast days for each grid cell.
+    weather_past_days: int = 7
+    weather_forecast_days: int = 7
+
     # Telegram. Without a token the bot does not start and alerts are not sent.
     telegram_bot_token: str | None = None
 

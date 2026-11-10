@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
@@ -17,12 +18,24 @@ from app.config import get_settings
 from app.db import get_db
 from app.main import app
 from app.models import Field, User
+from app.services import weather
 from app.services.auth import create_session, hash_password
+from app.services.weather import WeatherError
 
 ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
 
 
 TELEGRAM_USER_ID = 555000111
+
+
+@pytest.fixture(autouse=True)
+def offline_weather(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests never call Open-Meteo. A test that needs weather data replaces weather._get_json itself."""
+
+    def offline(url: str, params: dict[str, Any], timeout: float) -> dict[str, Any]:
+        raise WeatherError("Open-Meteo is offline in tests")
+
+    monkeypatch.setattr(weather, "_get_json", offline)
 
 
 @pytest.fixture

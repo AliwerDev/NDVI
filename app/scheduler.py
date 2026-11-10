@@ -1,4 +1,4 @@
-"""Periodic job: update the indices of all fields, detect problems, send Telegram alerts.
+"""Periodic job: update the weather and the indices of all fields, detect problems, send Telegram alerts.
 
 Run every day:  python -m app.scheduler
 Run once now:   python -m app.scheduler --once
@@ -24,6 +24,7 @@ from app.models import Field, NdviObservation
 from app.services.alerts import detect_alerts
 from app.services.history import latest_observation, save_observation
 from app.services.ndvi import NoClearSceneError, compute_field_ndvi
+from app.services.weather import refresh_forecasts
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,8 @@ def run_update(db: Session, today: date) -> None:
     settings = get_settings()
     fields = list(db.scalars(select(Field).order_by(Field.id)))
     logger.info("Updating %d fields for %s", len(fields), today)
+    cells = refresh_forecasts(db, fields, today)
+    logger.info("Weather updated for %d grid cells", cells)
 
     for field in fields:
         try:

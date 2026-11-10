@@ -8,5 +8,16 @@ from app.models.field import Field
 from app.models.ndvi_observation import NdviObservation
 from app.models.telegram_token import TelegramToken
 from app.models.user import User
+from app.models.weather import WeatherDay
 
-__all__ = ["Alert", "AuthSession", "BackfillJob", "Base", "Field", "NdviObservation", "TelegramToken", "User"]
+__all__ = [
+    "Alert",
+    "AuthSession",
+    "BackfillJob",
+    "Base",
+    "Field",
+    "NdviObservation",
+    "TelegramToken",
+    "User",
+    "WeatherDay",
+]
