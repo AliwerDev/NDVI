@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     # Alerts and scheduler
     # Alert when mean NDVI falls by at least this much since the previous observation (absolute value).
     ndvi_drop_threshold: float = 0.15
+    # Water stress: alert when mean NDMI goes below this value, or falls by at least the drop value.
+    ndmi_stress_threshold: float = 0.0
+    ndmi_drop_threshold: float = 0.10
+    # Nitrogen: mean NDRE below the low value means a likely shortage, at or above the ok value means enough.
+    ndre_low_threshold: float = 0.20
+    ndre_ok_threshold: float = 0.30
+    # Below this mean NDVI the plants are too sparse for a reliable NDRE. No nitrogen advice is given.
+    ndre_min_ndvi: float = 0.30
+    # The thresholds depend on the crop and its growth stage. Change them in .env.
     scheduler_timezone: str = "Asia/Tashkent"
     scheduler_hour: int = 7
     scheduler_minute: int = 0

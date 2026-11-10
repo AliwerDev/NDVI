@@ -4,8 +4,10 @@ from datetime import date
 
 WELCOME = (
     "Assalomu alaykum! 🌱\n\n"
-    "Men maydonlaringizni Sentinel-2 sunʼiy yoʻldosh suratlari orqali kuzataman. "
-    "NDVI (oʻsimlik holati koʻrsatkichi) keskin tushsa, sizga xabar yuboraman.\n\n"
+    "Men maydonlaringizni Sentinel-2 sunʼiy yoʻldosh suratlari orqali kuzataman va sizga xabar yuboraman:\n"
+    "• NDVI (oʻsimlik holati) keskin tushsa;\n"
+    "• NDMI (barg namligi) suv stressini koʻrsatsa;\n"
+    "• NDRE (xlorofill) azot yetishmasligini koʻrsatsa.\n\n"
     "Saytga Telegram orqali kiring yoki saytda «Telegramni ulash» tugmasini bosing. "
     "Shundan keyin barcha maydonlaringiz boʻyicha ogohlantirishlar shu chatga keladi.\n\n"
     "/fields — maydonlaringiz va oxirgi NDVI"
@@ -30,11 +32,23 @@ def _format_date(day: date) -> str:
     return day.strftime("%d.%m.%Y")
 
 
-def field_line(field_id: int, field_name: str, ndvi: float | None, observed_on: date | None) -> str:
-    """One line of the /fields list."""
+def field_line(
+    field_id: int,
+    field_name: str,
+    ndvi: float | None,
+    observed_on: date | None,
+    ndmi: float | None = None,
+    ndre: float | None = None,
+) -> str:
+    """One line of the /fields list. NDMI and NDRE are left out when the observation has no value for them."""
     if ndvi is None or observed_on is None:
         return f"{field_id}. {field_name} — hali NDVI maʼlumoti yoʻq"
-    return f"{field_id}. {field_name} — NDVI {ndvi:.2f} ({_format_date(observed_on)})"
+    values = [f"NDVI {ndvi:.2f}"]
+    if ndmi is not None:
+        values.append(f"NDMI {ndmi:.2f}")
+    if ndre is not None:
+        values.append(f"NDRE {ndre:.2f}")
+    return f"{field_id}. {field_name} — {', '.join(values)} ({_format_date(observed_on)})"
 
 
 def fields_list(lines: list[str]) -> str:
@@ -56,4 +70,50 @@ def ndvi_drop_alert(
         f"{_format_date(current_date)}: {current_ndvi:.2f}\n"
         f"Pasayish: {drop:.2f}\n\n"
         "Maydonni tekshirib koʻring: suv yetishmasligi, zararkunanda yoki kasallik boʻlishi mumkin."
+    )
+
+
+def ndmi_stress_alert(
+    field_name: str,
+    previous_date: date | None,
+    previous_ndmi: float | None,
+    current_date: date,
+    current_ndmi: float,
+    drop: float | None,
+    stress_threshold: float,
+) -> str:
+    """Water stress alert: NDMI is below the threshold, or it fell sharply."""
+    lines = []
+    if previous_date is not None and previous_ndmi is not None:
+        lines.append(f"{_format_date(previous_date)}: {previous_ndmi:.2f}")
+    lines.append(f"{_format_date(current_date)}: {current_ndmi:.2f}")
+
+    if current_ndmi < stress_threshold:
+        lines.append(f"Chegara: {stress_threshold:.2f}")
+        return (
+            f"💧 Suv stressi! «{field_name}» maydonida NDMI chegaradan pastga tushdi.\n\n"
+            + "\n".join(lines)
+            + "\n\nSugʻorishni tekshiring: ariq yoki tomchilatib sugʻorish tizimi ishlayaptimi, "
+            "suv dalaning hamma qismiga yetib boryaptimi."
+        )
+
+    if drop is not None:
+        lines.append(f"Pasayish: {drop:.2f}")
+    return (
+        f"💧 Diqqat! «{field_name}» maydonida NDMI keskin tushdi.\n\n"
+        + "\n".join(lines)
+        + "\n\nBarglarda namlik kamaymoqda. Sugʻorish jadvalini va suv yetib borishini tekshiring."
+    )
+
+
+def ndre_low_alert(
+    field_name: str, observed_on: date, ndre: float, ndvi: float, low_threshold: float, advice: str
+) -> str:
+    """Nitrogen advice: NDRE became low."""
+    return (
+        f"🌿 Azot tavsiyasi: «{field_name}»\n\n"
+        f"{_format_date(observed_on)}: NDRE {ndre:.2f} (chegara {low_threshold:.2f})\n"
+        f"NDVI {ndvi:.2f}\n\n"
+        f"{advice}\n\n"
+        "Bu sunʼiy yoʻldosh bahosi. Qaror oldidan dalani tekshiring."
     )

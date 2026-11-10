@@ -5,19 +5,22 @@ import { useEffect, useRef } from "react";
 import { CloseIcon } from "@/components/icons";
 import NdviChart from "@/components/NdviChart";
 import ObservationStats from "@/components/ObservationStats";
+import IndexTabs from "@/components/IndexTabs";
 import type { FieldFeature, Observation } from "@/lib/api";
-import { formatDateLong, ndviColor } from "@/lib/ndvi";
+import { formatDateLong, formatIndex, INDEX_NAMES, type IndexName, indexColor, indexValues, INDICES } from "@/lib/ndvi";
 
 type Props = {
   field: FieldFeature;
   observations: Observation[];
   selected: Observation | null;
   onSelect: (observation: Observation) => void;
+  index: IndexName;
+  onSelectIndex: (index: IndexName) => void;
   onClose: () => void;
 };
 
-// The NDVI report of one field in a large window: chart, selected observation and all observations.
-export default function NdviReport({ field, observations, selected, onSelect, onClose }: Props) {
+// The report of one field in a large window: chart of one index, selected observation and all observations.
+export default function NdviReport({ field, observations, selected, onSelect, index, onSelectIndex, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -46,7 +49,7 @@ export default function NdviReport({ field, observations, selected, onSelect, on
       >
         <header className="report-head">
           <div className="field-title">
-            <span className="eyebrow">{field.id}-maydon · NDVI hisobot</span>
+            <span className="eyebrow">{field.id}-maydon · hisobot</span>
             <h2 id="report-title" className="serif-title">
               {field.properties.name}
             </h2>
@@ -63,13 +66,20 @@ export default function NdviReport({ field, observations, selected, onSelect, on
 
         <div className="report-body">
           <section className="card" aria-labelledby="report-chart-title">
-            <h3 id="report-chart-title" className="card-title">
-              NDVI grafigi
-            </h3>
+            <div className="card-head card-head-wrap">
+              <div>
+                <h3 id="report-chart-title" className="card-title">
+                  Oʻrtacha {INDICES[index].label}
+                </h3>
+                <p className="meta">{INDICES[index].caption}</p>
+              </div>
+              <IndexTabs value={index} onChange={onSelectIndex} className="report-tabs" />
+            </div>
             <NdviChart
               observations={observations}
               selectedId={selected?.id ?? null}
               onSelect={onSelect}
+              index={index}
               variant="large"
             />
           </section>
@@ -79,7 +89,7 @@ export default function NdviReport({ field, observations, selected, onSelect, on
               <h3 id="report-stats-title" className="card-title">
                 Tanlangan kuzatuv
               </h3>
-              <ObservationStats observation={selected} columns={4} longDate />
+              <ObservationStats observation={selected} index={index} onSelectIndex={onSelectIndex} longDate />
             </section>
           )}
 
@@ -93,9 +103,11 @@ export default function NdviReport({ field, observations, selected, onSelect, on
                   <thead>
                     <tr>
                       <th scope="col">Sana</th>
-                      <th scope="col">Oʻrtacha NDVI</th>
-                      <th scope="col">Min</th>
-                      <th scope="col">Max</th>
+                      {INDEX_NAMES.map((name) => (
+                        <th key={name} scope="col">
+                          {INDICES[name].label}
+                        </th>
+                      ))}
                       <th scope="col">Bulutsiz qism</th>
                     </tr>
                   </thead>
@@ -109,14 +121,24 @@ export default function NdviReport({ field, observations, selected, onSelect, on
                               {formatDateLong(o.observed_on)}
                             </button>
                           </td>
-                          <td>
-                            <span className="ndvi-cell">
-                              <span className="ndvi-swatch" style={{ background: ndviColor(o.ndvi_mean) }} />
-                              {o.ndvi_mean.toFixed(3)}
-                            </span>
-                          </td>
-                          <td>{o.ndvi_min.toFixed(2)}</td>
-                          <td>{o.ndvi_max.toFixed(2)}</td>
+                          {INDEX_NAMES.map((name) => {
+                            const values = indexValues(o, name);
+                            return (
+                              <td key={name}>
+                                {values ? (
+                                  <span className="ndvi-cell">
+                                    <span
+                                      className="ndvi-swatch"
+                                      style={{ background: indexColor(name, values.mean) }}
+                                    />
+                                    {formatIndex(values.mean)}
+                                  </span>
+                                ) : (
+                                  <span className="muted-cell">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
                           <td>{Math.round(o.clear_fraction * 100)}%</td>
                         </tr>
                       );

@@ -58,15 +58,15 @@ const STEPS = [
   },
   {
     title: "Telegram xabar beradi",
-    text: "Oʻrtacha NDVI oldingi kuzatuvdan 0.15 yoki koʻproq tushsa, bot ogohlantiradi. Telegram orqali kirsangiz, xabarlar oʻsha Telegramga keladi.",
+    text: "Oʻrtacha NDVI oldingi kuzatuvdan 0.15 yoki koʻproq tushsa, bot ogohlantiradi. NDMI suv stressini, NDRE azot yetishmasligini koʻrsatsa ham xabar keladi. Telegram orqali kirsangiz, xabarlar oʻsha Telegramga keladi.",
   },
 ];
 
 const RISKS = [
-  "Suv yetishmasligi yoki sugʻorish uzilishi",
+  "Suv yetishmasligi yoki sugʻorish uzilishi — NDMI qatlamida koʻrinadi",
   "Zararkunandalar",
   "Kasallik",
-  "Oʻgʻit, ayniqsa azot yetishmasligi",
+  "Oʻgʻit, ayniqsa azot yetishmasligi — NDRE qatlamida koʻrinadi",
   "Doʻl, kuchli shamol yoki suv bosishi",
 ];
 

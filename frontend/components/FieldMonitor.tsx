@@ -19,14 +19,15 @@ import {
   SendIcon,
   SettingsIcon,
   SpinnerIcon,
-  TrashIcon,
   UndoIcon,
 } from "@/components/icons";
 import LogoMark from "@/components/Logo";
 import MapSearch, { type SearchTarget } from "@/components/MapSearch";
 import MapView, { type Basemap } from "@/components/MapView";
+import IndexTabs from "@/components/IndexTabs";
 import NdviChart from "@/components/NdviChart";
 import NdviReport from "@/components/NdviReport";
+import NitrogenCard from "@/components/NitrogenCard";
 import ObservationStats from "@/components/ObservationStats";
 import {
   api,
@@ -39,7 +40,17 @@ import {
   type Position,
   type User,
 } from "@/lib/api";
-import { daysAgo, formatDate, isoDate, NDVI_STOPS, seasonStart } from "@/lib/ndvi";
+import {
+  daysAgo,
+  formatDate,
+  formatIndex,
+  type IndexName,
+  indexValues,
+  INDICES,
+  isoDate,
+  rampGradient,
+  seasonStart,
+} from "@/lib/ndvi";
 
 const BASEMAPS: { value: Basemap; label: string; Icon: typeof GlobeIcon }[] = [
   { value: "satellite", label: "Sunʼiy yoʻldosh", Icon: GlobeIcon },
@@ -48,13 +59,10 @@ const BASEMAPS: { value: Basemap; label: string; Icon: typeof GlobeIcon }[] = [
 
 const LAYERS: { value: FieldLayer; label: string }[] = [
   { value: "ndvi", label: "NDVI" },
+  { value: "ndmi", label: "NDMI" },
+  { value: "ndre", label: "NDRE" },
   { value: "rgb", label: "Rangli rasm" },
 ];
-
-// The legend puts each color stop on a −0.2…0.9 bar.
-const RAMP = `linear-gradient(to right, ${NDVI_STOPS.map(
-  ([value, color]) => `${color} ${(((value + 0.2) / 1.1) * 100).toFixed(2)}%`,
-).join(", ")})`;
 
 // While a backfill job runs: check its status every 3 s.
 const BACKFILL_POLL_MS = 3_000;
@@ -66,6 +74,8 @@ export default function FieldMonitor() {
   const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
   const [overlay, setOverlay] = useState<ObservationImage | null>(null);
   const [layer, setLayer] = useState<FieldLayer>("ndvi");
+  // The index of the chart, the selected row and the report. An index layer on the map follows it.
+  const [index, setIndex] = useState<IndexName>("ndvi");
   const [overlayLoading, setOverlayLoading] = useState(false);
   const [basemap, setBasemap] = useState<Basemap>("satellite");
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
@@ -74,7 +84,6 @@ export default function FieldMonitor() {
   const [draftPoints, setDraftPoints] = useState<Position[]>([]);
   const [newName, setNewName] = useState("");
 
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const closeReport = useCallback(() => setReportOpen(false), []);
 
@@ -128,7 +137,6 @@ export default function FieldMonitor() {
     setHistory([]);
     setSelectedObservation(null);
     setOverlay(null);
-    setConfirmingDelete(false);
     setReportOpen(false);
     if (selectedId === null) return;
     run(async () => {
@@ -203,6 +211,12 @@ export default function FieldMonitor() {
   // The old image stays on the map until the new one is ready, so the field does not flash empty.
   useEffect(() => {
     if (!selectedObservation) return;
+    // An observation from before NDMI and NDRE were added has no file for them. The legend explains it.
+    if (layer !== "rgb" && indexValues(selectedObservation, layer) === null) {
+      setOverlay(null);
+      setOverlayLoading(false);
+      return;
+    }
     let cancelled = false;
     setOverlayLoading(true);
     api
@@ -224,6 +238,16 @@ export default function FieldMonitor() {
       cancelled = true;
     };
   }, [selectedObservation, layer]);
+
+  const selectIndex = (value: IndexName) => {
+    setIndex(value);
+    setLayer((current) => (current === "rgb" ? "rgb" : value));
+  };
+
+  const selectLayer = (value: FieldLayer) => {
+    setLayer(value);
+    if (value !== "rgb") setIndex(value);
+  };
 
   // Selecting a field ends the drawing mode.
   const selectField = (id: number) => {
@@ -255,16 +279,6 @@ export default function FieldMonitor() {
       setMessage(`«${created.properties.name}» maydoni saqlandi (raqami: ${created.id}).`);
     });
 
-  const deleteField = () => {
-    if (!selectedField) return;
-    setConfirmingDelete(false);
-    run(async () => {
-      await api.deleteField(selectedField.id);
-      setSelectedId(null);
-      await loadFields();
-    });
-  };
-
   const computeNdvi = () => {
     if (!selectedField) return;
     setComputing(true);
@@ -272,7 +286,9 @@ export default function FieldMonitor() {
       const observation = await api.computeNdvi(selectedField.id, daysAgo(30), isoDate(new Date()));
       await loadHistory(selectedField.id);
       setSelectedObservation(observation);
-      setMessage(`NDVI hisoblandi: ${formatDate(observation.observed_on)}, oʻrtacha ${observation.ndvi_mean.toFixed(2)}.`);
+      setMessage(
+        `Indekslar hisoblandi: ${formatDate(observation.observed_on)}, oʻrtacha NDVI ${formatIndex(observation.ndvi_mean)}.`,
+      );
     }).finally(() => setComputing(false));
   };
 
@@ -454,7 +470,7 @@ export default function FieldMonitor() {
               <div className="stack">
                 <button type="button" className="btn btn-primary" onClick={computeNdvi} disabled={busy}>
                   {computing ? <SpinnerIcon size={16} className="spin" /> : <ActivityIcon size={16} />}
-                  {computing ? "Kuting…" : "NDVI hisoblash (30 kun)"}
+                  {computing ? "Kuting…" : "Indekslarni hisoblash (30 kun)"}
                 </button>
                 <button
                   type="button"
@@ -470,21 +486,12 @@ export default function FieldMonitor() {
                       : "Yuklanmoqda…"
                     : "Mavsum tarixini yuklash"}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() => setConfirmingDelete(true)}
-                  disabled={busy}
-                >
-                  <TrashIcon size={16} />
-                  Oʻchirish
-                </button>
               </div>
             </section>
 
             <section className="card" aria-labelledby="ch-title">
               <div className="card-head">
-                <h2 id="ch-title">NDVI grafigi</h2>
+                <h2 id="ch-title">Indekslar grafigi</h2>
                 {history.length > 0 && (
                   <div className="card-head-actions">
                     <span className="meta">{history.length} ta kuzatuv</span>
@@ -500,18 +507,25 @@ export default function FieldMonitor() {
                   </div>
                 )}
               </div>
+              <IndexTabs value={index} onChange={selectIndex} />
+              <p className="meta index-caption">{INDICES[index].caption}</p>
               <NdviChart
                 observations={history}
                 selectedId={selectedObservation?.id ?? null}
                 onSelect={setSelectedObservation}
+                index={index}
               />
             </section>
 
             {selectedObservation && (
               <section className="card" aria-labelledby="st-title">
                 <h2 id="st-title">Tanlangan kuzatuv</h2>
-                <ObservationStats observation={selectedObservation} />
+                <ObservationStats observation={selectedObservation} index={index} onSelectIndex={selectIndex} />
               </section>
+            )}
+
+            {selectedObservation?.nitrogen_advice && selectedObservation.ndre_mean !== null && (
+              <NitrogenCard advice={selectedObservation.nitrogen_advice} ndre={selectedObservation.ndre_mean} />
             )}
           </>
         )}
@@ -579,14 +593,18 @@ export default function FieldMonitor() {
                   role="radio"
                   aria-checked={active}
                   aria-busy={active && overlayLoading}
-                  onClick={() => setLayer(value)}
+                  onClick={() => selectLayer(value)}
                 >
                   {active && overlayLoading ? (
                     <SpinnerIcon size={14} className="spin" />
-                  ) : value === "ndvi" ? (
-                    <span className="legend-switch-ramp" aria-hidden="true" />
-                  ) : (
+                  ) : value === "rgb" ? (
                     <ImageIcon size={14} />
+                  ) : (
+                    <span
+                      className="ramp-swatch"
+                      aria-hidden="true"
+                      style={{ background: rampGradient(INDICES[value].stops) }}
+                    />
                   )}
                   {label}
                 </button>
@@ -594,17 +612,27 @@ export default function FieldMonitor() {
             })}
           </div>
 
-          {layer === "ndvi" ? (
+          {layer !== "rgb" ? (
             <>
-              <div className="ramp" aria-hidden="true" style={{ background: RAMP }} />
+              <div className="ramp" aria-hidden="true" style={{ background: rampGradient(INDICES[layer].stops) }} />
               <div className="ramp-labels">
-                <span>−0.2</span>
-                <span>0.35</span>
-                <span>0.9</span>
+                {INDICES[layer].legendLabels.map((text) => (
+                  <span key={text}>{text}</span>
+                ))}
               </div>
-              <Link href="/#ranglar" className="legend-link">
-                Ranglar nimani bildiradi?
-              </Link>
+              {selectedObservation && indexValues(selectedObservation, layer) === null ? (
+                <p className="legend-note">
+                  Bu kuzatuvda {INDICES[layer].label} yoʻq. Uni koʻrish uchun mavsum tarixini qayta yuklang.
+                </p>
+              ) : (
+                INDICES[layer].legendNote && <p className="legend-note">{INDICES[layer].legendNote}</p>
+              )}
+              <div className="legend-foot">
+                <span className="legend-meta">Sentinel-2 · {INDICES[layer].pixel} piksel</span>
+                <Link href="/#ranglar" className="legend-link">
+                  Ranglar nimani bildiradi?
+                </Link>
+              </div>
             </>
           ) : (
             <>
@@ -630,38 +658,10 @@ export default function FieldMonitor() {
           observations={history}
           selected={selectedObservation}
           onSelect={setSelectedObservation}
+          index={index}
+          onSelectIndex={selectIndex}
           onClose={closeReport}
         />
-      )}
-
-      {confirmingDelete && selectedField && (
-        <div className="modal-backdrop" onClick={() => setConfirmingDelete(false)}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dlg-title"
-            className="dialog"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setConfirmingDelete(false);
-            }}
-          >
-            <div className="dialog-head">
-              <span className="dialog-icon" aria-hidden="true">
-                <TrashIcon size={20} />
-              </span>
-              <h3 id="dlg-title">«{selectedField.properties.name}» maydoni oʻchirilsinmi?</h3>
-            </div>
-            <div className="dialog-actions">
-              <button type="button" className="btn btn-outline" autoFocus onClick={() => setConfirmingDelete(false)}>
-                Bekor qilish
-              </button>
-              <button type="button" className="btn btn-danger-solid" onClick={deleteField}>
-                Oʻchirish
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

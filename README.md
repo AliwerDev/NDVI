@@ -1,15 +1,22 @@
 # NDVI Field Monitor
 
-A field-monitoring service for farmers in Uzbekistan. The service tracks the vegetation health of each field with NDVI from Sentinel-2 satellite imagery. When NDVI drops sharply, a Telegram bot sends an alert in Uzbek.
+A field-monitoring service for farmers in Uzbekistan. The service tracks each field with three indices from Sentinel-2 satellite imagery:
+
+- NDVI shows the vegetation health.
+- NDMI shows the leaf water content. A low NDMI means water stress.
+- NDRE shows the chlorophyll content. A low NDRE means a likely nitrogen shortage.
+
+When one of the indices shows a problem, a Telegram bot sends an alert in Uzbek.
 
 ## Features
 
 - Draw a field boundary on a map, or send it as GeoJSON to the API.
 - Find the newest Sentinel-2 L2A scene for the field with low cloud cover.
-- Compute NDVI for the field. The service masks clouds with the `SCL` band and saves the result as a Cloud Optimized GeoTIFF (COG).
-- Store an NDVI time series for each field and show it as a chart.
-- Update all fields every day and detect a sharp NDVI drop.
-- Send the drop alert to the Telegram account of the field's owner.
+- Compute NDVI, NDMI, and NDRE for the field. The service masks clouds with the `SCL` band and saves each index as a Cloud Optimized GeoTIFF (COG).
+- Store a time series of the three indices for each field and show it as a chart and as map layers.
+- Give a nitrogen recommendation from NDRE.
+- Update all fields every day. Detect a sharp NDVI drop, water stress, and a low nitrogen level.
+- Send the alerts to the Telegram account of the field's owner.
 
 ## Architecture
 
@@ -51,9 +58,14 @@ The frontend runs on your computer with `npm run dev`.
 
 1. The scheduler starts at `SCHEDULER_HOUR:SCHEDULER_MINUTE` in `SCHEDULER_TIMEZONE`.
 2. For each field, it searches for scenes after the last observation. A field without observations is searched `SCHEDULER_LOOKBACK_DAYS` back.
-3. It computes NDVI for the newest clear scene and stores the observation.
-4. It compares the new mean NDVI with the previous observation. If the drop is `NDVI_DROP_THRESHOLD` or more, it creates an alert.
+3. It computes NDVI, NDMI, and NDRE for the newest clear scene and stores the observation.
+4. It compares the new observation with the previous observation and creates alerts:
+   - NDVI drop: the mean NDVI fell by `NDVI_DROP_THRESHOLD` or more.
+   - Water stress: the mean NDMI went below `NDMI_STRESS_THRESHOLD`, or fell by `NDMI_DROP_THRESHOLD` or more.
+   - Low nitrogen: the mean NDRE went below `NDRE_LOW_THRESHOLD`, and the mean NDVI is `NDRE_MIN_NDVI` or more.
 5. It sends all unsent alerts to the Telegram account of each field's owner.
+
+The water stress alert and the nitrogen alert come only when the problem starts. While NDMI or NDRE stays low, the next observations do not send the same alert again.
 
 ## Requirements
 
@@ -160,6 +172,11 @@ All settings come from `.env`. See `.env.example` for the full list.
 | `MIN_CLEAR_FRACTION` | `0.8` | Minimum share of clear field pixels (0–1). |
 | `DATA_DIR` | `data` | Folder for the NDVI COG files. |
 | `NDVI_DROP_THRESHOLD` | `0.15` | Alert threshold for the mean NDVI drop (absolute). |
+| `NDMI_STRESS_THRESHOLD` | `0.0` | Water stress alert when the mean NDMI goes below this value. |
+| `NDMI_DROP_THRESHOLD` | `0.10` | Water stress alert when the mean NDMI falls by this value or more. |
+| `NDRE_LOW_THRESHOLD` | `0.20` | Below this mean NDRE, the nitrogen level is low. |
+| `NDRE_OK_THRESHOLD` | `0.30` | From this mean NDRE, the nitrogen level is enough. |
+| `NDRE_MIN_NDVI` | `0.30` | Below this mean NDVI, the service gives no nitrogen advice. |
 | `SCHEDULER_TIMEZONE` | `Asia/Tashkent` | Time zone of the daily job. |
 | `SCHEDULER_HOUR`, `SCHEDULER_MINUTE` | `7`, `0` | Time of the daily job. |
 | `SCHEDULER_LOOKBACK_DAYS` | `10` | Search period for a field without observations. |
@@ -190,11 +207,11 @@ All endpoints except `/health`, `/auth/register`, `/auth/login`, `/auth/telegram
 | `DELETE` | `/fields/{id}` | Deletes a field and its observations (204). |
 | `GET` | `/fields/{id}/scenes/best?start=&end=` | Returns the newest usable Sentinel-2 scene. |
 | `POST` | `/fields/{id}/ndvi?start=&end=` | Computes NDVI for the newest clear scene, saves a COG, and stores the observation. |
-| `GET` | `/fields/{id}/ndvi?start=&end=` | Returns the NDVI time series. `start` and `end` are optional. |
+| `GET` | `/fields/{id}/ndvi?start=&end=` | Returns the time series of NDVI, NDMI, and NDRE with the nitrogen advice. `start` and `end` are optional. |
 | `POST` | `/fields/{id}/ndvi/backfill?start=&end=` | Starts a background job that fills the history (202). Returns the job. `409` if a job already runs for the field. |
 | `GET` | `/fields/{id}/ndvi/backfill` | Returns the newest job: `status` (`running`, `done`, `failed`) and `saved_count`. `null` if the field has no jobs. |
-| `GET` | `/observations/{id}/image` | Returns the PNG URL and its lon/lat bounds. |
-| `GET` | `/observations/{id}/image.png` | Returns the NDVI map as a colored PNG. |
+| `GET` | `/observations/{id}/image?layer=` | Returns the PNG URL and its lon/lat bounds. `layer` is `ndvi` (default), `ndmi`, `ndre`, or `rgb`. |
+| `GET` | `/observations/{id}/image.png?layer=` | Returns the map of the layer as a colored PNG. |
 | `GET` | `/telegram/bot` | Returns the bot username for the deep link, or `null`. |
 
 Dates use the format `YYYY-MM-DD`. Request body for `POST /fields`. GeoJSON uses the order `[longitude, latitude]`:
@@ -216,7 +233,7 @@ Dates use the format `YYYY-MM-DD`. Request body for `POST /fields`. GeoJSON uses
 1. The service searches the Planetary Computer STAC API. A scene is a candidate if:
    - the tile cloud cover is `MAX_CLOUD_COVER` or less;
    - the scene covers the full field;
-   - the scene has the `B04`, `B08`, and `SCL` assets.
+   - the scene has the `B04`, `B08`, `SCL`, `B05`, `B8A`, and `B11` assets.
 2. The service signs the asset URLs and reads only the area around the field from the COG files.
 3. It reprojects the field polygon from lon/lat to the UTM projection of the scene.
 4. It resamples `SCL` from 20 m to 10 m with the nearest-neighbor method.
@@ -227,6 +244,32 @@ Dates use the format `YYYY-MM-DD`. Request body for `POST /fields`. GeoJSON uses
    - the reflectance values are positive.
 7. If less than `MIN_CLEAR_FRACTION` of the field is clear, the service tries the next older scene, up to 5 scenes.
 8. The service saves a float32 COG in `data/ndvi/{field_id}/{date}_{scene_id}.tif`. The value is `NaN` outside the field and under clouds.
+
+## How NDMI and NDRE are computed
+
+```
+NDMI = (B8A - B11) / (B8A + B11)
+NDRE = (B8A - B05) / (B8A + B05)
+```
+
+The bands `B05`, `B8A`, `B11`, and `SCL` have 20 m pixels on the same grid. The service reads them on one window without resampling. It uses the same offset and the same cloud mask as for NDVI.
+
+1. The service computes NDMI and NDRE only for a scene that passed the NDVI clear check. A cloudy scene does not cause extra reads.
+2. It saves the COG files next to the NDVI file: `{date}_{scene_id}_ndmi.tif` and `{date}_{scene_id}_ndre.tif`.
+3. If the 20 m bands cannot be read, the service keeps the NDVI result and leaves NDMI and NDRE empty.
+
+The nitrogen advice uses the mean NDRE:
+
+| Mean NDRE | Level | Advice |
+|---|---|---|
+| Below `NDRE_LOW_THRESHOLD` | `low` | A nitrogen shortage is likely. Examine the field and agree on a nitrogen fertilizer with an agronomist. |
+| From `NDRE_LOW_THRESHOLD` to `NDRE_OK_THRESHOLD` | `medium` | Plan a feeding if NDRE falls in the next observations. |
+| `NDRE_OK_THRESHOLD` or more | `ok` | No extra feeding is necessary. |
+| Any value, mean NDVI below `NDRE_MIN_NDVI` | `unknown` | No advice. Sparse plants and bare soil also give a low NDRE. |
+
+The thresholds depend on the crop and its growth stage. Set them in `.env`.
+
+Observations from before this change have no NDMI and NDRE values. To fill them, load the season history again.
 
 ## Tests
 
@@ -246,8 +289,8 @@ app/
   bot/           Telegram bot: commands, login confirmation, Uzbek messages, alert delivery
   models/        SQLAlchemy models: User, AuthSession, TelegramToken, Field, NdviObservation, Alert
   schemas/       Pydantic request and response models
-  services/      auth (passwords, sessions, Telegram codes), stac (scene search), ndvi (computation),
-                 history, alerts, render (PNG)
+  services/      auth (passwords, sessions, Telegram codes), stac (scene search), ndvi (NDVI, NDMI, NDRE),
+                 history, alerts, recommendations (nitrogen advice), render (PNG)
   config.py      Settings from .env
   db.py          Database engine and session
   main.py        FastAPI app

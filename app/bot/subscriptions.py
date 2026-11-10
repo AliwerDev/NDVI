@@ -61,6 +61,8 @@ def list_user_fields(db: Session, telegram_user_id: int) -> str:
                 field.name,
                 latest.ndvi_mean if latest else None,
                 latest.observed_on if latest else None,
+                latest.ndmi_mean if latest else None,
+                latest.ndre_mean if latest else None,
             )
         )
     return messages.fields_list(lines)

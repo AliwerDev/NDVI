@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.models import Field
 from app.services.history import save_observation
-from app.services.render import colorize, image_bounds, render_png
+from app.services.ndvi import index_cog_path
+from app.services.render import NDMI_STOPS, colorize, image_bounds, render_png
 from tests.factories import make_result
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -91,3 +92,39 @@ def test_cors_allows_frontend_origin(client: TestClient) -> None:
     response = client.get("/health", headers={"Origin": "http://localhost:3000"})
 
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+def test_colorize_with_ndmi_ramp_maps_dry_to_brown_and_wet_to_blue() -> None:
+    rgba = colorize(np.array([[-0.4, 0.6]], dtype=np.float32), NDMI_STOPS)
+
+    assert tuple(rgba[:, 0, 0]) == (140, 81, 10, 255)
+    assert tuple(rgba[:, 0, 1]) == (49, 54, 149, 255)
+
+
+@pytest.mark.parametrize("layer", ["ndmi", "ndre"])
+def test_index_layer_endpoints(
+    layer: str, db_client: TestClient, db_session: Session, field: Field, tmp_path: Path
+) -> None:
+    cog = _write_ndvi_cog(tmp_path / "ndvi.tif")
+    _write_ndvi_cog(index_cog_path(cog, layer))
+    observation = save_observation(db_session, field.id, replace(make_result(18, 0.7), cog_path=str(cog)))
+
+    info = db_client.get(f"/observations/{observation.id}/image", params={"layer": layer})
+    png = db_client.get(f"/observations/{observation.id}/image.png", params={"layer": layer})
+
+    assert info.status_code == 200
+    assert info.json()["url"] == f"/observations/{observation.id}/image.png?layer={layer}"
+    assert png.status_code == 200 and png.content.startswith(PNG_SIGNATURE)
+
+
+def test_index_layer_404_for_old_observation(
+    db_client: TestClient, db_session: Session, field: Field, tmp_path: Path
+) -> None:
+    # An observation saved before NDMI was added has only the NDVI file.
+    cog = _write_ndvi_cog(tmp_path / "ndvi.tif")
+    observation = save_observation(db_session, field.id, replace(make_result(18, 0.7), cog_path=str(cog)))
+
+    response = db_client.get(f"/observations/{observation.id}/image", params={"layer": "ndmi"})
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "NDMI file not found"

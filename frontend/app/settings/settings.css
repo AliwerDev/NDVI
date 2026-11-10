@@ -374,6 +374,40 @@
   color: var(--text);
 }
 
+.settings-icon-btn-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.settings-icon-btn:disabled {
+  color: var(--muted);
+  opacity: 0.5;
+}
+
+/* The heading takes focus after a delete. It is not a control, so no ring. */
+.settings-card h2:focus {
+  outline: none;
+}
+
+/* Delete dialog. The frame comes from globals.css. */
+
+.dialog-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog-body h3 {
+  overflow-wrap: anywhere;
+}
+
+.dialog-body p {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
 /* Logout */
 
 .settings-exit {

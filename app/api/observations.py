@@ -1,4 +1,4 @@
-"""Map images for one observation: NDVI colors or true color (RGB), as a PNG and its lon/lat bounds."""
+"""Map images for one observation: index colors (NDVI, NDMI, NDRE) or true color (RGB), as a PNG and its bounds."""
 
 from pathlib import Path
 from typing import Literal
@@ -12,12 +12,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, DbSession
 from app.models import Field, NdviObservation, User
+from app.services.ndvi import index_cog_path
 from app.services.render import image_bounds, render_png, render_rgb_png
 from app.services.rgb import SceneNotFoundError, ensure_rgb_cog
 
 router = APIRouter(prefix="/observations", tags=["ndvi"])
 
-Layer = Literal["ndvi", "rgb"]
+Layer = Literal["ndvi", "ndmi", "ndre", "rgb"]
 
 
 class ObservationImage(BaseModel):
@@ -35,10 +36,11 @@ def _cog_path_or_404(db: Session, observation_id: int, user: User, layer: Layer)
     if observation is None or field is None or field.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found")
 
-    if layer == "ndvi":
-        path = Path(observation.cog_path)
+    if layer != "rgb":
+        # Observations saved before NDMI and NDRE were added have only the NDVI file.
+        path = Path(observation.cog_path) if layer == "ndvi" else index_cog_path(observation.cog_path, layer)
         if not path.exists():
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="NDVI file not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{layer.upper()} file not found")
         return path
 
     try:
@@ -62,7 +64,7 @@ def get_observation_image(
     The first RGB request reads the scene from Planetary Computer and takes a few seconds.
     """
     path = _cog_path_or_404(db, observation_id, user, layer)
-    url = f"/observations/{observation_id}/image.png" + ("?layer=rgb" if layer == "rgb" else "")
+    url = f"/observations/{observation_id}/image.png" + ("" if layer == "ndvi" else f"?layer={layer}")
     return ObservationImage(url=url, bounds=image_bounds(path))
 
 
@@ -72,10 +74,10 @@ def get_observation_image(
     responses={200: {"content": {"image/png": {}}}},
 )
 def get_observation_png(observation_id: int, user: CurrentUser, db: DbSession, layer: Layer = "ndvi") -> Response:
-    """Return the observation as a PNG in Web Mercator: NDVI colors or true color.
+    """Return the observation as a PNG in Web Mercator: index colors or true color.
 
     MapLibre sends the Authorization header through transformRequest in the frontend.
     """
     path = _cog_path_or_404(db, observation_id, user, layer)
-    png = render_rgb_png(path) if layer == "rgb" else render_png(path)
+    png = render_rgb_png(path) if layer == "rgb" else render_png(path, layer)
     return Response(content=png, media_type="image/png")

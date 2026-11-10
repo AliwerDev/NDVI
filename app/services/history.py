@@ -1,4 +1,4 @@
-"""Store and read NDVI observations."""
+"""Store and read observations (NDVI, NDMI, NDRE)."""
 
 from collections.abc import Callable
 from datetime import date
@@ -8,7 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Field, NdviObservation
-from app.services.ndvi import FieldNdvi, iter_field_ndvi_series
+from app.services.ndvi import FieldNdvi, NdviStats, iter_field_ndvi_series
+
+
+def _values(stats: NdviStats | None) -> tuple[float | None, float | None, float | None]:
+    return (stats.mean, stats.min, stats.max) if stats is not None else (None, None, None)
 
 
 def save_observation(db: Session, field_id: int, result: FieldNdvi) -> NdviObservation:
@@ -31,6 +35,8 @@ def save_observation(db: Session, field_id: int, result: FieldNdvi) -> NdviObser
     observation.ndvi_mean = result.stats.mean
     observation.ndvi_min = result.stats.min
     observation.ndvi_max = result.stats.max
+    observation.ndmi_mean, observation.ndmi_min, observation.ndmi_max = _values(result.indices.get("ndmi"))
+    observation.ndre_mean, observation.ndre_min, observation.ndre_max = _values(result.indices.get("ndre"))
     observation.clear_fraction = result.stats.clear_fraction
     observation.cog_path = result.cog_path
     db.commit()

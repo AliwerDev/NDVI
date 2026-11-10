@@ -38,7 +38,9 @@ const STYLE: StyleSpecification = {
       type: "raster",
       tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
       tileSize: 256,
-      maxzoom: 19,
+      // In rural areas Esri has no imagery above z17 and returns a "Map data not yet available"
+      // tile. Above this level MapLibre stretches the z17 tiles instead.
+      maxzoom: 17,
       attribution: "Imagery © Esri",
     },
   },

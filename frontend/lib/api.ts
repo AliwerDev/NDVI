@@ -27,9 +27,25 @@ export type Observation = {
   ndvi_mean: number;
   ndvi_min: number;
   ndvi_max: number;
+  // null for observations saved before NDMI and NDRE were added.
+  ndmi_mean: number | null;
+  ndmi_min: number | null;
+  ndmi_max: number | null;
+  ndre_mean: number | null;
+  ndre_min: number | null;
+  ndre_max: number | null;
+  nitrogen_advice: NitrogenAdvice | null;
   clear_fraction: number;
   cog_path: string;
   created_at: string;
+};
+
+/** Nitrogen advice from NDRE. "unknown": the plants are too sparse for a reliable NDRE. */
+export type NitrogenAdvice = {
+  level: "low" | "medium" | "ok" | "unknown";
+  text: string;
+  low_threshold: number;
+  ok_threshold: number;
 };
 
 // A background job that fills the NDVI history. saved_count grows while the job runs.
@@ -44,8 +60,8 @@ export type BackfillJob = {
   finished_at: string | null;
 };
 
-/** What the map shows inside the selected field: NDVI colors or the true color satellite image. */
-export type FieldLayer = "ndvi" | "rgb";
+/** What the map shows inside the selected field: index colors or the true color satellite image. */
+export type FieldLayer = "ndvi" | "ndmi" | "ndre" | "rgb";
 
 export type ObservationImage = {
   url: string;

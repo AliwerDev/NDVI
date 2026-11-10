@@ -1,4 +1,4 @@
-"""Periodic job: update NDVI for all fields, detect sharp drops, send Telegram alerts.
+"""Periodic job: update the indices of all fields, detect problems, send Telegram alerts.
 
 Run every day:  python -m app.scheduler
 Run once now:   python -m app.scheduler --once
@@ -21,7 +21,7 @@ from app.bot.notify import send_pending_alerts
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import Field, NdviObservation
-from app.services.alerts import detect_drop
+from app.services.alerts import detect_alerts
 from app.services.history import latest_observation, save_observation
 from app.services.ndvi import NoClearSceneError, compute_field_ndvi
 
@@ -63,9 +63,8 @@ def run_update(db: Session, today: date) -> None:
         if observation is None:
             continue
         logger.info("Field %s: NDVI %.3f on %s", field.id, observation.ndvi_mean, observation.observed_on)
-        alert = detect_drop(db, observation, settings.ndvi_drop_threshold)
-        if alert is not None:
-            logger.warning("Field %s: NDVI dropped by %.3f", field.id, alert.drop)
+        for alert in detect_alerts(db, observation, settings):
+            logger.warning("Field %s: %s alert, value %.3f", field.id, alert.kind, alert.current_mean)
 
     sent = send_pending_alerts(db)
     logger.info("Update finished, %d Telegram messages sent", sent)

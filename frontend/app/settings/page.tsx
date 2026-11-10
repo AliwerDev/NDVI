@@ -11,6 +11,7 @@ import {
   PencilIcon,
   SendIcon,
   SpinnerIcon,
+  TrashIcon,
 } from "@/components/icons";
 import LogoMark from "@/components/Logo";
 import { api, type FieldFeature, type User } from "@/lib/api";
@@ -90,7 +91,11 @@ export default function SettingsPage() {
           <>
             <ProfileCard user={user} onSaved={setUser} />
             <TelegramCard user={user} onChanged={setUser} />
-            <FieldsCard fields={fields} onRenamed={(f) => setFields((list) => list.map((x) => (x.id === f.id ? f : x)))} />
+            <FieldsCard
+              fields={fields}
+              onRenamed={(f) => setFields((list) => list.map((x) => (x.id === f.id ? f : x)))}
+              onDeleted={(id) => setFields((list) => list.filter((x) => x.id !== id))}
+            />
             <LogoutCard />
           </>
         ) : (
@@ -323,21 +328,36 @@ function TelegramCard({ user, onChanged }: { user: User; onChanged: (user: User)
   );
 }
 
-function FieldsCard({ fields, onRenamed }: { fields: FieldFeature[]; onRenamed: (field: FieldFeature) => void }) {
+function FieldsCard({
+  fields,
+  onRenamed,
+  onDeleted,
+}: {
+  fields: FieldFeature[];
+  onRenamed: (field: FieldFeature) => void;
+  onDeleted: (id: number) => void;
+}) {
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<FieldFeature | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
-  // After save or cancel, focus goes back to the pencil button of the same row.
-  const pencils = useRef(new Map<number, HTMLButtonElement>());
-  const [refocusId, setRefocusId] = useState<number | null>(null);
+  // After an edit or a delete dialog closes, focus goes back to the button that opened it.
+  const rowButtons = useRef(new Map<string, HTMLButtonElement>());
+  const [refocusKey, setRefocusKey] = useState<string | null>(null);
 
   useEffect(() => {
-    if (refocusId === null) return;
-    pencils.current.get(refocusId)?.focus();
-    setRefocusId(null);
-  }, [refocusId]);
+    if (refocusKey === null) return;
+    rowButtons.current.get(refocusKey)?.focus();
+    setRefocusKey(null);
+  }, [refocusKey]);
+
+  const rowButtonRef = (key: string) => (el: HTMLButtonElement | null) => {
+    if (el) rowButtons.current.set(key, el);
+    else rowButtons.current.delete(key);
+  };
 
   const startEdit = (field: FieldFeature) => {
     setEditingId(field.id);
@@ -348,7 +368,7 @@ function FieldsCard({ fields, onRenamed }: { fields: FieldFeature[]; onRenamed: 
 
   const stopEdit = (id: number) => {
     setEditingId(null);
-    setRefocusId(id);
+    setRefocusKey(`edit-${id}`);
   };
 
   const save = async (event: FormEvent, field: FieldFeature) => {
@@ -372,11 +392,49 @@ function FieldsCard({ fields, onRenamed }: { fields: FieldFeature[]; onRenamed: 
     }
   };
 
+  const startDelete = (field: FieldFeature) => {
+    setDeleting(field);
+    setError(null);
+    setStatus("");
+  };
+
+  const cancelDelete = () => {
+    if (busy || !deleting) return;
+    setRefocusKey(`delete-${deleting.id}`);
+    setDeleting(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    const field = deleting;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteField(field.id);
+      onDeleted(field.id);
+      setStatus(`«${field.properties.name}» maydoni oʻchirildi.`);
+      setDeleting(null);
+      // The row is gone, so focus goes to the card heading.
+      headingRef.current?.focus();
+    } catch (err) {
+      setDeleting(null);
+      setRefocusKey(`delete-${field.id}`);
+      setError(`Maydonni oʻchirib boʻlmadi. ${errorText(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section className="settings-card" aria-labelledby="set-fields">
-      <div className="settings-row-head">
-        <h2 id="set-fields">Maydonlar</h2>
-        <span className="badge">{fields.length}</span>
+      <div className="settings-section-head">
+        <div className="settings-row-head">
+          <h2 id="set-fields" ref={headingRef} tabIndex={-1}>
+            Maydonlar
+          </h2>
+          <span className="badge">{fields.length}</span>
+        </div>
+        <p>Nomni oʻzgartiring yoki keraksiz maydonni oʻchiring.</p>
       </div>
 
       {fields.length === 0 ? (
@@ -416,16 +474,24 @@ function FieldsCard({ fields, onRenamed }: { fields: FieldFeature[]; onRenamed: 
                 <span className="settings-field-id">{field.id}.</span>
                 <span className="settings-field-name">{field.properties.name}</span>
                 <button
-                  ref={(el) => {
-                    if (el) pencils.current.set(field.id, el);
-                    else pencils.current.delete(field.id);
-                  }}
+                  ref={rowButtonRef(`edit-${field.id}`)}
                   type="button"
                   className="settings-icon-btn"
                   aria-label={`«${field.properties.name}» nomini oʻzgartirish`}
                   onClick={() => startEdit(field)}
                 >
                   <PencilIcon size={16} />
+                </button>
+                <button
+                  ref={rowButtonRef(`delete-${field.id}`)}
+                  type="button"
+                  className="settings-icon-btn settings-icon-btn-danger"
+                  aria-label={`«${field.properties.name}» maydonini oʻchirish`}
+                  title="Oʻchirish"
+                  onClick={() => startDelete(field)}
+                  disabled={busy}
+                >
+                  <TrashIcon size={16} />
                 </button>
               </li>
             ),
@@ -437,6 +503,41 @@ function FieldsCard({ fields, onRenamed }: { fields: FieldFeature[]; onRenamed: 
         {status}
       </p>
       <ErrorLine text={error} />
+
+      {deleting && (
+        <div className="modal-backdrop" onClick={cancelDelete}>
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="del-title"
+            aria-describedby="del-text"
+            className="dialog"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") cancelDelete();
+            }}
+          >
+            <div className="dialog-head">
+              <span className="dialog-icon" aria-hidden="true">
+                <TrashIcon size={20} />
+              </span>
+              <div className="dialog-body">
+                <h3 id="del-title">«{deleting.properties.name}» maydoni oʻchirilsinmi?</h3>
+                <p id="del-text">Maydonning NDVI tarixi va ogohlantirishlari ham oʻchadi. Buni qaytarib boʻlmaydi.</p>
+              </div>
+            </div>
+            <div className="dialog-actions">
+              <button type="button" className="btn btn-outline" autoFocus onClick={cancelDelete} disabled={busy}>
+                Bekor qilish
+              </button>
+              <button type="button" className="btn btn-danger-solid" onClick={confirmDelete} disabled={busy}>
+                {busy && <SpinnerIcon size={16} className="spin" />}
+                Oʻchirish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

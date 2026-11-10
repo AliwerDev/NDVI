@@ -24,7 +24,7 @@ def _item(
     day: int,
     cloud: float,
     footprint: Any = TILE,
-    assets: tuple[str, ...] = ("B04", "B08", "SCL"),
+    assets: tuple[str, ...] = stac.REQUIRED_ASSETS,
 ) -> pystac.Item:
     item = pystac.Item(
         id=item_id,

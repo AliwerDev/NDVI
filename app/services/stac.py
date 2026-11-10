@@ -12,7 +12,8 @@ from shapely.geometry.base import BaseGeometry
 from app.config import get_settings
 
 # Asset keys on Planetary Computer: B04 = red, B08 = near infrared, SCL = scene classification.
-REQUIRED_ASSETS = ("B04", "B08", "SCL")
+# The 20 m bands: B05 = red edge, B8A = narrow near infrared, B11 = shortwave infrared (for NDRE and NDMI).
+REQUIRED_ASSETS = ("B04", "B08", "SCL", "B05", "B8A", "B11")
 # True color: B04 = red, B03 = green, B02 = blue.
 RGB_ASSETS = ("B04", "B03", "B02")
 
