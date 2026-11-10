@@ -43,7 +43,7 @@ When one of the indices shows a problem, a Telegram bot sends an alert in Uzbek.
                                                       └────────────────────────┘
 ```
 
-The Docker Compose file starts four services:
+The Docker Compose file starts five services:
 
 | Service | Command | Purpose |
 |---|---|---|
@@ -51,8 +51,7 @@ The Docker Compose file starts four services:
 | `api` | `uvicorn app.main:app` | REST API. |
 | `scheduler` | `python -m app.scheduler` | Daily NDVI update and drop detection. Sends the alerts. |
 | `bot` | `python -m app.bot` | Telegram login, account linking, and `/fields`. |
-
-The frontend runs on your computer with `npm run dev`.
+| `web` | `npm run dev` | Next.js frontend on port 3000. |
 
 ### Daily update
 
@@ -71,7 +70,7 @@ The water stress alert and the nitrogen alert come only when the problem starts.
 
 - [uv](https://docs.astral.sh/uv/)
 - Docker with Docker Compose
-- Node.js 20.9 or later (for the frontend)
+- Node.js 20.9 or later (only to run the frontend without Docker)
 
 ## Setup
 
@@ -81,15 +80,16 @@ The water stress alert and the nitrogen alert come only when the problem starts.
 4. Run `uv sync`. This command creates `.venv`.
 5. Optional: to enable Telegram, get a bot token from [@BotFather](https://t.me/BotFather) and set `TELEGRAM_BOT_TOKEN`.
 
-## Run the backend
+## Run the app
 
 ```
 docker compose up --build -d
 docker compose exec api alembic upgrade head
 ```
 
-The second command applies the database migrations. Run it again after each new migration.
+The first command starts the backend and the frontend. The second command applies the database migrations. Run it again after each new migration.
 
+- Frontend: http://localhost:3000
 - API docs (Swagger UI): http://localhost:8000/docs
 - Health check: http://localhost:8000/health
 
@@ -105,9 +105,22 @@ To read the logs of a service:
 docker compose logs -f scheduler
 ```
 
-## Run the frontend
+## Use the frontend
+
+The `web` service runs `next dev`. If you change a file in `frontend/`, the page reloads.
+
+If you add an npm package, rebuild the service:
 
 ```
+docker compose up --build -V -d web
+```
+
+The `-V` flag replaces the old `node_modules` volume.
+
+To run the frontend without Docker, stop the `web` service first. Then run these commands:
+
+```
+docker compose stop web
 cd frontend
 npm install
 npm run dev

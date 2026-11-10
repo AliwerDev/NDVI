@@ -55,5 +55,20 @@ services:
     # Without TELEGRAM_BOT_TOKEN the bot exits with code 0, and "on-failure" does not restart it.
     restart: on-failure
 
+  web:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      # Windows bind mounts do not send file events, so Next.js polls for changes.
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      # Keep the Linux node_modules and the build cache from the image, not the host folders.
+      - /app/node_modules
+      - /app/.next
+
 volumes:
   pgdata:
