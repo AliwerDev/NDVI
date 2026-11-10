@@ -25,6 +25,7 @@ from app.services.alerts import detect_alerts
 from app.services.history import latest_observation, save_observation
 from app.services.ndvi import NoClearSceneError, compute_field_ndvi
 from app.services.weather import refresh_forecasts
+from app.services.weather_alerts import detect_weather_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,10 @@ def run_update(db: Session, today: date) -> None:
         logger.info("Field %s: NDVI %.3f on %s", field.id, observation.ndvi_mean, observation.observed_on)
         for alert in detect_alerts(db, observation, settings):
             logger.warning("Field %s: %s alert, value %.3f", field.id, alert.kind, alert.current_mean)
+
+    # After the NDVI update: a new observation can show that the plants grow.
+    for warning in detect_weather_alerts(db, fields, today, settings):
+        logger.warning("Field %s: %s from %s, %.1f °C", warning.field_id, warning.kind, warning.day, warning.value)
 
     sent = send_pending_alerts(db)
     logger.info("Update finished, %d Telegram messages sent", sent)

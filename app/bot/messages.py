@@ -120,3 +120,40 @@ def ndre_low_alert(
         f"{advice}\n\n"
         "Bu sunʼiy yoʻldosh bahosi. Qaror oldidan dalani tekshiring."
     )
+
+
+def _format_period(first: date, last: date) -> str:
+    if first == last:
+        return _format_date(first)
+    return f"{_format_date(first)}–{_format_date(last)}"
+
+
+def weather_context(days: int, precipitation: float, et0: float, t_max: float | None) -> str:
+    """The weather before an observation. It helps to find the cause of a change in the indices."""
+    values = [f"yogʻin {precipitation:.0f} mm"]
+    if t_max is not None:
+        values.append(f"eng yuqori harorat {t_max:.0f} °C")
+    values.append(f"bugʻlanish (ET0) {et0:.0f} mm")
+    return f"🌦 Oldingi {days} kun ob-havosi (taxminiy): " + ", ".join(values) + "."
+
+
+def frost_alert(field_name: str, first: date, last: date, t_min: float, threshold: float) -> str:
+    """Frost warning from the forecast."""
+    return (
+        f"❄️ Sovuq xavfi: «{field_name}»\n\n"
+        f"{_format_period(first, last)}: kechasi {t_min:.1f} °C gacha sovuq kutilmoqda "
+        f"(prognoz, chegara {threshold:.0f} °C).\n\n"
+        "Ekinni himoya qiling: sovuqdan bir kun oldin sugʻorish tuproq issiqligini saqlaydi. "
+        "Bu kunlarga purkash va oʻgʻitlashni rejalashtirmang."
+    )
+
+
+def heat_alert(field_name: str, first: date, last: date, t_max: float, threshold: float) -> str:
+    """Heat warning from the forecast."""
+    return (
+        f"🔥 Jazirama: «{field_name}»\n\n"
+        f"{_format_period(first, last)}: kunduzi {t_max:.1f} °C gacha issiq kutilmoqda "
+        f"(prognoz, chegara {threshold:.0f} °C).\n\n"
+        "Sugʻorishni kechiktirmang, uni erta tongda yoki kechqurun qiling. "
+        "Issiq soatlarda purkash va oʻgʻitlash qilmang."
+    )

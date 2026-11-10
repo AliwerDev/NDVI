@@ -1,11 +1,15 @@
-"""WeatherDay model: daily weather of one grid cell (Open-Meteo)."""
+"""Weather models: daily weather of one grid cell (Open-Meteo), and frost and heat warnings of a field."""
 
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
+
+WEATHER_FROST = "frost"
+WEATHER_HEAT = "heat"
+WEATHER_ALERT_KINDS = (WEATHER_FROST, WEATHER_HEAT)
 
 
 class WeatherDay(Base):
@@ -33,3 +37,23 @@ class WeatherDay(Base):
     wind_max: Mapped[float | None] = mapped_column(Float)
     is_forecast: Mapped[bool] = mapped_column(Boolean)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class WeatherAlert(Base):
+    """A frost or heat period in the forecast of a field. sent_at stays empty until the Telegram message is sent.
+
+    day and last_day are the first and the last day of the period. value is the lowest minimum (frost)
+    or the highest maximum (heat) temperature of the period, in degrees Celsius.
+    """
+
+    __tablename__ = "weather_alerts"
+    __table_args__ = (UniqueConstraint("field_id", "kind", "day", name="uq_weather_alerts_field_kind_day"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    field_id: Mapped[int] = mapped_column(ForeignKey("fields.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    day: Mapped[date] = mapped_column(Date)
+    last_day: Mapped[date] = mapped_column(Date)
+    value: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -198,3 +198,32 @@ def fill_history(db: Session, field: Field, start: date, end: date, today: date)
         return 0
     cell = field_cell(field)
     return upsert_days(db, cell, fetch_archive(cell, start, end), today)
+
+
+@dataclass(frozen=True)
+class WeatherSummary:
+    """Totals of the stored days before a date. Empty values count as 0 mm."""
+
+    days: int
+    precipitation: float
+    et0: float
+    t_max: float | None
+
+    @property
+    def balance(self) -> float:
+        """Rain minus reference evapotranspiration, in mm. A negative value means that the soil loses water."""
+        return self.precipitation - self.et0
+
+
+def summary_before(db: Session, cell: Cell, day: date, n: int = 7) -> WeatherSummary | None:
+    """Totals of the n days before `day` (the day itself is not included), or None without stored days."""
+    rows = list_days(db, cell, day - timedelta(days=n), day - timedelta(days=1))
+    if not rows:
+        return None
+    maxima = [r.t_max for r in rows if r.t_max is not None]
+    return WeatherSummary(
+        days=len(rows),
+        precipitation=round(sum(r.precipitation or 0.0 for r in rows), 1),
+        et0=round(sum(r.et0 or 0.0 for r in rows), 1),
+        t_max=max(maxima) if maxima else None,
+    )

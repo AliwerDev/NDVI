@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     # The daily update stores this many past days and forecast days for each grid cell.
     weather_past_days: int = 7
     weather_forecast_days: int = 7
+    # Frost and heat warnings for the next N days of the forecast (degrees Celsius).
+    frost_threshold_c: float = 0.0
+    heat_threshold_c: float = 40.0
+    weather_alert_days: int = 3
+    # Only fields with growing plants get the warnings: an observation of the last N days
+    # has mean NDVI >= NDRE_MIN_NDVI. So a bare field in winter gets no frost message every day.
+    growing_lookback_days: int = 30
 
     # Telegram. Without a token the bot does not start and alerts are not sent.
     telegram_bot_token: str | None = None
