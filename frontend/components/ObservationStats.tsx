@@ -6,7 +6,6 @@ import {
   INDEX_NAMES,
   type IndexName,
   indexColor,
-  indexTextColor,
   indexValues,
   INDICES,
 } from "@/lib/ndvi";
@@ -39,7 +38,7 @@ function status(index: IndexName, observation: Observation, mean: number): { tex
   return { text: "Baho yoʻq", tone: "neutral" };
 }
 
-// The selected observation: date, clear part, and one row per index. A row click switches the chart and the map.
+// The selected observation: date, clear part, and a two-line row per index. A row click switches the chart and the map.
 export default function ObservationStats({ observation, index, onSelectIndex, longDate = false }: Props) {
   const clearPercent = Math.round(observation.clear_fraction * 100);
   const missing = INDEX_NAMES.some((name) => indexValues(observation, name) === null);
@@ -49,7 +48,7 @@ export default function ObservationStats({ observation, index, onSelectIndex, lo
       <div className="obs-stats-head">
         <span className="obs-stats-date">{(longDate ? formatDateLong : formatDate)(observation.observed_on)}</span>
         <span className="obs-stats-clear">
-          <span>Bulutsiz qism</span>
+          <span>Bulutsiz</span>
           <span className="progress" aria-hidden="true">
             <span style={{ width: `${clearPercent}%` }} />
           </span>
@@ -58,12 +57,6 @@ export default function ObservationStats({ observation, index, onSelectIndex, lo
       </div>
 
       <div className="index-rows" role="group" aria-label="Indekslar">
-        <div className="index-row index-row-head" aria-hidden="true">
-          <span>Indeks</span>
-          <span>Oʻrtacha</span>
-          <span>Min … Max</span>
-          <span>Holat</span>
-        </div>
         {INDEX_NAMES.map((name) => {
           const values = indexValues(observation, name);
           const active = name === index;
@@ -76,33 +69,35 @@ export default function ObservationStats({ observation, index, onSelectIndex, lo
               aria-pressed={active}
               onClick={() => onSelectIndex(name)}
             >
-              <span className="index-row-label">{INDICES[name].label}</span>
-              {values ? (
-                <>
-                  <span
-                    className="index-badge"
-                    style={{ background: indexColor(name, values.mean), color: indexTextColor(name, values.mean) }}
-                  >
-                    {formatIndex(values.mean)}
+              <span className="index-row-top">
+                <span
+                  className="index-swatch"
+                  aria-hidden="true"
+                  style={values ? { background: indexColor(name, values.mean) } : undefined}
+                />
+                <span className="index-row-label">{INDICES[name].label}</span>
+                {state && (
+                  <span className={`status-chip status-${state.tone}`}>
+                    <span className="status-dot" aria-hidden="true" />
+                    {state.text}
                   </span>
-                  <span className="index-row-range">
-                    {formatIndex(values.min)} … {formatIndex(values.max)}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="index-row-missing">—</span>
-                  <span className="index-row-range">Maʼlumot yoʻq</span>
-                </>
-              )}
-              {state ? (
-                <span className={`status-chip status-${state.tone}`}>
-                  <span className="status-dot" aria-hidden="true" />
-                  {state.text}
-                </span>
-              ) : (
-                <span />
-              )}
+                )}
+              </span>
+              <span className="index-row-values">
+                {values ? (
+                  <>
+                    <span className="index-value">{formatIndex(values.mean)}</span>
+                    <span className="index-row-range">
+                      oraliq {formatIndex(values.min)} – {formatIndex(values.max)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="index-value index-value-missing">—</span>
+                    <span className="index-row-range">Maʼlumot yoʻq</span>
+                  </>
+                )}
+              </span>
             </button>
           );
         })}

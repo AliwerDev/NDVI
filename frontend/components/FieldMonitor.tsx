@@ -67,6 +67,14 @@ const LAYERS: { value: FieldLayer; label: string }[] = [
 // While a backfill job runs: check its status every 3 s.
 const BACKFILL_POLL_MS = 3_000;
 
+// The selected field is kept in the URL (?field=3), so a page reload opens the same field.
+const FIELD_PARAM = "field";
+
+function fieldIdFromUrl(): number | null {
+  const id = Number(new URLSearchParams(window.location.search).get(FIELD_PARAM));
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 export default function FieldMonitor() {
   const [fields, setFields] = useState<FieldFeature[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -94,6 +102,8 @@ export default function FieldMonitor() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [backfillJob, setBackfillJob] = useState<BackfillJob | null>(null);
+  // False until the first field list arrives. Until then the URL keeps the field from the last visit.
+  const [urlRestored, setUrlRestored] = useState(false);
 
   const selectedField = fields.find((field) => field.id === selectedId) ?? null;
   // The field check drops a late response for a field that is no longer selected.
@@ -124,8 +134,26 @@ export default function FieldMonitor() {
   }, []);
 
   useEffect(() => {
-    run(loadFields);
-  }, [run, loadFields]);
+    run(async () => {
+      try {
+        const list = await api.listFields();
+        setFields(list);
+        // A deleted field or a field of another user stays unselected.
+        const id = fieldIdFromUrl();
+        if (id !== null && list.some((field) => field.id === id)) setSelectedId(id);
+      } finally {
+        setUrlRestored(true);
+      }
+    });
+  }, [run]);
+
+  useEffect(() => {
+    if (!urlRestored) return;
+    const url = new URL(window.location.href);
+    if (selectedId === null) url.searchParams.delete(FIELD_PARAM);
+    else url.searchParams.set(FIELD_PARAM, String(selectedId));
+    window.history.replaceState(null, "", url);
+  }, [urlRestored, selectedId]);
 
   useEffect(() => {
     // A 401 here sends the user to the login page (see lib/api.ts).

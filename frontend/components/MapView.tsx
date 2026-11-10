@@ -115,6 +115,7 @@ export default function MapView(props: Props) {
   const markerRef = useRef<Marker | null>(null);
   const [loaded, setLoaded] = useState(false);
   const fittedToAllRef = useRef(false);
+  const zoomedIdRef = useRef<number | null>(null);
 
   // The map is created once. Its click handler reads the newest props through this ref.
   const propsRef = useRef(props);
@@ -245,22 +246,35 @@ export default function MapView(props: Props) {
     const map = mapRef.current;
     if (!map || !loaded) return;
     (map.getSource("fields") as GeoJSONSource).setData(fieldsData(fields, selectedId));
-    if (!fittedToAllRef.current && fields.length > 0) {
+    if (fittedToAllRef.current || fields.length === 0) return;
+    fittedToAllRef.current = true;
+    // After a reload with a selected field, open the map on that field, not on all fields.
+    const selected = fields.find((field) => field.id === selectedId);
+    if (selected) {
+      const bounds = boundsOf([selected]);
+      if (bounds) map.fitBounds(bounds, { padding: 80, maxZoom: 16, duration: 0 });
+      zoomedIdRef.current = selected.id;
+    } else {
       const bounds = boundsOf(fields);
       if (bounds) map.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 0 });
-      fittedToAllRef.current = true;
     }
   }, [loaded, fields, selectedId]);
 
+  // Zoom once per selection. The ref stops a zoom each time the field list reloads.
   useEffect(() => {
     const map = mapRef.current;
+    if (!map || !loaded) return;
+    if (selectedId === null) {
+      zoomedIdRef.current = null;
+      return;
+    }
+    if (zoomedIdRef.current === selectedId) return;
     const selected = fields.find((field) => field.id === selectedId);
-    if (!map || !loaded || !selected) return;
+    if (!selected) return;
+    zoomedIdRef.current = selectedId;
     const bounds = boundsOf([selected]);
     if (bounds) map.fitBounds(bounds, { padding: 80, maxZoom: 16 });
-    // "fields" is left out of the dependencies on purpose: zoom only when the selection changes,
-    // not every time the field list reloads.
-  }, [loaded, selectedId]);
+  }, [loaded, fields, selectedId]);
 
   useEffect(() => {
     const map = mapRef.current;
