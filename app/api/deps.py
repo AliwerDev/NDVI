@@ -1,4 +1,4 @@
-"""Shared FastAPI dependencies: the database session and the signed-in user."""
+"""Shared FastAPI dependencies: the database session, the signed-in user and the admin check."""
 
 from typing import Annotated
 
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import User
-from app.services.auth import user_for_token
+from app.services.auth import touch_last_seen, user_for_token
 
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -26,7 +26,18 @@ def get_current_user(db: DbSession, credentials: BearerToken) -> User:
             detail="Not signed in",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    touch_last_seen(db, user)
     return user
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def require_admin(user: CurrentUser) -> User:
+    """Return the signed-in user if it is an admin, or answer 403."""
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
+    return user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]

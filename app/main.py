@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, fields, health, ndvi, observations, telegram, weather
+from app.api import admin, auth, fields, health, ndvi, observations, telegram, weather
 from app.config import get_settings
 
 settings = get_settings()
@@ -25,3 +25,4 @@ app.include_router(ndvi.router)
 app.include_router(observations.router)
 app.include_router(telegram.router)
 app.include_router(weather.router)
+app.include_router(admin.router)

@@ -149,6 +149,28 @@ A login gives a session token. The frontend keeps it in `localStorage` and sends
 
 The first registered user gets all fields that existed before accounts (fields without an owner).
 
+## Admin panel
+
+The admin panel is on `/admin`. It shows statistics for the whole service:
+
+- Users: the total, new users, active users, linked Telegram accounts, and sign-in methods.
+- Fields: the total, the total area, and fields without an observation.
+- Observations, alerts, and background history jobs.
+- The system status: failed or stuck history jobs, unsent alerts, the newest satellite scene, and the last weather update.
+- A list of users with search, sort, and pages.
+
+Only an admin can open the panel. Other users get `403`. Admins see an "Admin panel" link under their account in the sidebar.
+
+To give admin rights, run this command:
+
+```bash
+docker compose exec api python -m app.cli grant-admin <user>
+```
+
+`<user>` is a login (`aziz_f`), a Telegram username (`@aziz_farm`), or a user id (`#12`). Use `revoke-admin` to remove the rights. Use `list-admins` to show all admins.
+
+"Active" users sent an API request in the last 7 days. The API records the time of the last request in `users.last_seen_at`, at most once in 5 minutes.
+
 ## Telegram bot
 
 1. Set `TELEGRAM_BOT_TOKEN` in `.env`.
@@ -226,6 +248,8 @@ All endpoints except `/health`, `/auth/register`, `/auth/login`, `/auth/telegram
 | `GET` | `/observations/{id}/image?layer=` | Returns the PNG URL and its lon/lat bounds. `layer` is `ndvi` (default), `ndmi`, `ndre`, or `rgb`. |
 | `GET` | `/observations/{id}/image.png?layer=` | Returns the map of the layer as a colored PNG. |
 | `GET` | `/telegram/bot` | Returns the bot username for the deep link, or `null`. |
+| `GET` | `/admin/stats` | Returns the statistics of the whole service. Admins only, else `403`. |
+| `GET` | `/admin/users?q=&sort=&order=&page=&per_page=` | Returns one page of users with their field and observation totals. `sort` is `last_seen` (default), `created`, `name`, `fields`, `area`, or `observations`. Admins only. |
 
 Dates use the format `YYYY-MM-DD`. Request body for `POST /fields`. GeoJSON uses the order `[longitude, latitude]`:
 

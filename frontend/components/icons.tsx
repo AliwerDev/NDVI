@@ -107,6 +107,20 @@ export const PinIcon = icon(
   </>,
 );
 
+export const RefreshIcon = icon(
+  <>
+    <path d="M21 12a9 9 0 1 1-3-6.7L21 8" />
+    <path d="M21 3v5h-5" />
+  </>,
+);
+
+export const BarsIcon = icon(
+  <>
+    <path d="M3 3v18h18" />
+    <path d="M7 15v2M12 10v7M17 6v11" />
+  </>,
+);
+
 export const LocateIcon = icon(
   <>
     <circle cx="12" cy="12" r="7" />

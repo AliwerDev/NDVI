@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, String, func
+from sqlalchemy import BigInteger, Boolean, DateTime, String, false, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -22,3 +22,7 @@ class User(Base):
     # The name from the Telegram profile.
     display_name: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Opens the admin panel. Only the CLI sets it: python -m app.cli grant-admin <user>.
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # The last API request with a session. Updated at most every few minutes (see touch_last_seen).
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -739,6 +739,36 @@ p {
   outline-offset: 2px;
 }
 
+/* Admin panel link under the account row. Only admins see it. */
+.admin-link {
+  flex: none;
+  height: 44px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-link span {
+  flex: 1;
+}
+
+.admin-link:hover {
+  background: var(--sunken);
+}
+
+.admin-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .account-avatar {
   flex: none;
   width: 32px;

@@ -203,6 +203,18 @@ const MONTHS_UZ = [
   "dekabr",
 ];
 
+/** "2026-06-12" → "12-iyun". */
+export function formatDayMonth(iso: string): string {
+  const [, month, day] = iso.slice(0, 10).split("-");
+  return `${Number(day)}-${MONTHS_UZ[Number(month) - 1]}`;
+}
+
+/** "2026-06-12" → "12-iyu". For chart axes. */
+export function formatDayMonthShort(iso: string): string {
+  const [, month, day] = iso.slice(0, 10).split("-");
+  return `${Number(day)}-${MONTHS_UZ[Number(month) - 1].slice(0, 3)}`;
+}
+
 /** "2026-06-12" → "12-iyun 2026". For the report window, where there is room for the month name. */
 export function formatDateLong(iso: string): string {
   const [year, month, day] = iso.split("-");

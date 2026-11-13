@@ -149,6 +149,18 @@ def user_for_token(db: Session, token: str) -> User | None:
     return db.get(User, session.user_id)
 
 
+LAST_SEEN_INTERVAL = timedelta(minutes=5)
+
+
+def touch_last_seen(db: Session, user: User) -> None:
+    """Record that the user is active. A write per request is not needed for "active in the last 7 days"."""
+    now = _now()
+    if user.last_seen_at is not None and now - user.last_seen_at < LAST_SEEN_INTERVAL:
+        return
+    user.last_seen_at = now
+    db.commit()
+
+
 def delete_session(db: Session, token: str) -> None:
     db.execute(delete(AuthSession).where(AuthSession.token_hash == _sha256(token)))
     db.commit()

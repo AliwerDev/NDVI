@@ -44,19 +44,24 @@ class UserRead(BaseModel):
     # NDVI alerts for all fields of the user go to this Telegram account.
     telegram_linked: bool
     telegram_username: str | None
+    is_admin: bool
 
     @classmethod
     def from_user(cls, user: User) -> "UserRead":
-        # A name set by the user (or taken from Telegram) comes before the login.
-        name = user.display_name or user.username or user.telegram_username or f"#{user.id}"
         return cls(
             id=user.id,
             username=user.username,
-            display_name=name,
+            display_name=display_name_of(user),
             has_password=user.password_hash is not None,
             telegram_linked=user.telegram_id is not None,
             telegram_username=user.telegram_username if user.telegram_id is not None else None,
+            is_admin=bool(user.is_admin),
         )
+
+
+def display_name_of(user: User) -> str:
+    """The name the app shows. A name set by the user (or taken from Telegram) comes before the login."""
+    return user.display_name or user.username or user.telegram_username or f"#{user.id}"
 
 
 class AuthResult(BaseModel):

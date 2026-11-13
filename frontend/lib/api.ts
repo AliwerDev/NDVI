@@ -76,6 +76,68 @@ export type User = {
   // NDVI alerts for all fields of the user go to this Telegram account.
   telegram_linked: boolean;
   telegram_username: string | null;
+  is_admin: boolean;
+};
+
+export type DailyCount = { day: string; count: number };
+
+export type AdminStats = {
+  generated_at: string;
+  users_total: number;
+  users_new_7d: number;
+  users_active_7d: number;
+  users_telegram: number;
+  users_without_fields: number;
+  sign_in_methods: { telegram_only: number; password_only: number; both: number };
+  fields_total: number;
+  fields_area_ha: number;
+  fields_without_observations: number;
+  observations_total: number;
+  observations_new_7d: number;
+  alerts_30d: { ndvi_drop: number; ndmi_stress: number; ndre_low: number; frost: number; heat: number };
+  alerts_unsent: number;
+  alerts_unsent_oldest: string | null;
+  backfill_running: number;
+  backfill_stuck: number;
+  backfill_failed_30d: number;
+  recent_failed_backfills: {
+    field_id: number;
+    field_name: string;
+    owner_name: string | null;
+    finished_at: string | null;
+  }[];
+  latest_scene_date: string | null;
+  weather_fetched_at: string | null;
+  new_users_daily: DailyCount[];
+  observations_daily: DailyCount[];
+};
+
+export type AdminUserSort = "last_seen" | "created" | "name" | "fields" | "area" | "observations";
+
+export type AdminUserRow = {
+  id: number;
+  display_name: string;
+  username: string | null;
+  telegram_linked: boolean;
+  telegram_username: string | null;
+  has_password: boolean;
+  is_admin: boolean;
+  fields: number;
+  area_ha: number;
+  observations: number;
+  last_observed_on: string | null;
+  created_at: string;
+  last_seen_at: string | null;
+};
+
+export type AdminUserPage = { total: number; page: number; per_page: number; items: AdminUserRow[] };
+
+export type AdminUserQuery = {
+  q: string;
+  sort: AdminUserSort;
+  order: "asc" | "desc";
+  page: number;
+  perPage: number;
 };
 
 export type AuthResult = { token: string; user: User };
@@ -180,6 +242,14 @@ export const api = {
 
   telegramLoginPoll: (pollToken: string) =>
     request<TelegramPoll>("/auth/telegram/poll", { method: "POST", body: JSON.stringify({ poll_token: pollToken }) }),
+
+  // 403 for users without admin rights.
+  adminStats: () => request<AdminStats>("/admin/stats"),
+
+  adminUsers: ({ q, sort, order, page, perPage }: AdminUserQuery) => {
+    const params = new URLSearchParams({ q, sort, order, page: String(page), per_page: String(perPage) });
+    return request<AdminUserPage>(`/admin/users?${params}`);
+  },
 
   // The first "rgb" request for an observation reads the scene from the satellite archive: a few seconds.
   observationImage: (id: number, layer: FieldLayer = "ndvi") =>
