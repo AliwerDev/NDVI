@@ -1,8 +1,8 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useId, useRef, useState } from "react";
 
-import { AlertIcon, PinIcon, SearchIcon } from "@/components/icons";
+import { AlertIcon, CloseIcon, PinIcon, SearchIcon } from "@/components/icons";
 import type { Position } from "@/lib/api";
 
 // Where the map moves after a search. A bbox zooms to the whole place, a point zooms in close.
@@ -66,6 +66,15 @@ export default function MapSearch({ onSelect }: Props) {
   const [results, setResults] = useState<SearchTarget[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const clear = () => {
+    setQuery("");
+    setResults(null);
+    setError(null);
+    inputRef.current?.focus();
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -97,23 +106,36 @@ export default function MapSearch({ onSelect }: Props) {
   };
 
   return (
-    <div className="map-search" role="search">
+    // Collapsed to an icon button. CSS opens it on hover and focus; text in the field keeps it open.
+    <div className={query ? "map-search is-open" : "map-search"} role="search">
       <form onSubmit={submit} className="map-search-bar">
-        <SearchIcon size={18} className="map-search-icon" />
+        {/* A click on the label focuses the input, so the icon opens the search on touch screens too. */}
+        <label htmlFor={inputId} className="map-search-icon" title="Joy qidirish">
+          <SearchIcon size={22} />
+        </label>
         <input
+          id={inputId}
+          ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Joy nomi yoki 41.30, 69.21"
           aria-label="Joy qidirish"
         />
-        <button
-          type="submit"
-          className="btn btn-primary btn-sm"
-          disabled={loading || !query.trim()}
-          aria-label={loading ? "Qidirilmoqda" : undefined}
-        >
-          {loading ? "…" : "Qidirish"}
-        </button>
+        {query && (
+          <>
+            <button type="button" className="map-search-clear" aria-label="Tozalash" onClick={clear}>
+              <CloseIcon size={16} />
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={loading || !query.trim()}
+              aria-label={loading ? "Qidirilmoqda" : undefined}
+            >
+              {loading ? "…" : "Qidirish"}
+            </button>
+          </>
+        )}
       </form>
       {error && (
         <div className="map-search-panel map-search-message error-text" role="alert">

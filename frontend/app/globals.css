@@ -247,13 +247,7 @@ p {
   letter-spacing: -0.3px;
 }
 
-/* Basemap segmented control */
-
-.basemap {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+/* Segmented control */
 
 .segmented {
   display: grid;
@@ -1239,25 +1233,164 @@ p {
   top: 16px;
   left: 16px;
   z-index: 5;
-  width: min(460px, calc(100% - 32px));
+  width: 52px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  transition: width 0.2s ease;
+}
+
+.map-search:hover,
+.map-search:focus-within,
+.map-search.is-open {
+  width: min(460px, calc(100% - 32px));
+}
+
+/* On a phone the open search covers the basemap button. */
+.map-search:focus-within,
+.map-search.is-open {
+  z-index: 8;
 }
 
 .map-search-bar {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 6px 6px 14px;
+  height: 52px;
+  padding: 6px 6px 6px 15px;
+  overflow: hidden;
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow-float);
 }
 
+.map-search-bar:focus-within {
+  box-shadow: var(--shadow-float), inset 0 0 0 2px var(--accent);
+}
+
 .map-search-icon {
   flex: none;
-  color: #6c6a64;
+  display: flex;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* The bar clips its children, so the focus ring goes inside the buttons. */
+.map-search-bar button:focus-visible {
+  outline-offset: -2px;
+}
+
+.map-search-clear {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-search-clear:hover {
+  background: var(--sunken);
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-search {
+    transition: none;
+  }
+}
+
+/* Basemap switch: a layers button in the top-right corner of the map opens the menu. */
+
+.basemap-switch {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.basemap-toggle {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-float);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.basemap-toggle:hover,
+.basemap-toggle[aria-expanded="true"] {
+  color: var(--accent);
+}
+
+.basemap-menu {
+  width: 232px;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.basemap-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.basemap-options button {
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.basemap-thumb {
+  display: block;
+  height: 64px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.basemap-thumb svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.basemap-options button:hover .basemap-thumb {
+  border-color: var(--border-strong);
+}
+
+.basemap-options button[aria-checked="true"] {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.basemap-options button[aria-checked="true"] .basemap-thumb {
+  border-color: var(--accent);
 }
 
 .map-search-bar input {
@@ -1340,9 +1473,10 @@ p {
 
 /* Toasts */
 
+/* The toasts sit under the basemap button. */
 .toasts {
   position: absolute;
-  top: 16px;
+  top: 80px;
   right: 16px;
   z-index: 6;
   width: 380px;
@@ -1631,9 +1765,39 @@ p {
   background: var(--sunken);
 }
 
-/* MapLibre attribution sits above the zoom buttons. */
+.map-locate {
+  position: absolute;
+  right: 16px;
+  bottom: 114px;
+  z-index: 4;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-float);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-locate:hover {
+  background: var(--sunken);
+}
+
+.map-locate[aria-busy="true"],
+.map-locate[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.map-locate[aria-pressed="true"] .locate-dot {
+  fill: currentColor;
+}
+
+/* MapLibre attribution sits above the locate and zoom buttons. */
 .map-wrap .maplibregl-ctrl-bottom-right {
-  bottom: 104px;
+  bottom: 168px;
 }
 
 /* Delete confirmation */
@@ -1802,13 +1966,6 @@ p {
   box-shadow: inset 0 0 0 1px rgba(20, 20, 19, 0.15);
 }
 
-/* When the map is narrow, the toasts go below the search bar. */
-@media (max-width: 1200px) {
-  .toasts {
-    top: 76px;
-  }
-}
-
 /* Phone: the map fills the screen and the sidebar becomes a bottom sheet. */
 @media (max-width: 800px) {
   .layout {
@@ -1851,10 +2008,6 @@ p {
     font-size: 24px;
   }
 
-  .toasts {
-    top: 76px;
-  }
-
   .legend {
     bottom: calc(45dvh + 16px);
     width: 220px;
@@ -1884,8 +2037,12 @@ p {
     bottom: calc(45dvh + 16px);
   }
 
+  .map-locate {
+    bottom: calc(45dvh + 114px);
+  }
+
   .map-wrap .maplibregl-ctrl-bottom-right {
-    bottom: calc(45dvh + 104px);
+    bottom: calc(45dvh + 168px);
   }
 
   .report-backdrop {

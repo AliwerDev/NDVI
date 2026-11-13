@@ -13,7 +13,7 @@ import {
 } from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 
-import { MinusIcon, PlusIcon } from "@/components/icons";
+import { LocateIcon, MinusIcon, PlusIcon, SpinnerIcon } from "@/components/icons";
 import type { SearchTarget } from "@/components/MapSearch";
 import { API_URL, type FieldFeature, type ObservationImage, type Position } from "@/lib/api";
 import { getToken } from "@/lib/auth";
@@ -62,7 +62,34 @@ type Props = {
   overlay: ObservationImage | null;
   basemap: Basemap;
   searchTarget: SearchTarget | null;
+  onLocateError: (message: string) => void;
 };
+
+// "found": the map shows the user's position. Panning the map makes the button "idle" again, the dot stays.
+type LocateState = "idle" | "locating" | "found";
+
+/** A polygon approximation of a circle. Good enough for the small radius of a GPS accuracy value. */
+function circleRing(center: Position, radiusMeters: number, steps = 64): Position[] {
+  const [lng, lat] = center;
+  const dLat = radiusMeters / 111_320;
+  const dLng = dLat / Math.cos((lat * Math.PI) / 180);
+  const ring: Position[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * 2 * Math.PI;
+    ring.push([lng + dLng * Math.cos(angle), lat + dLat * Math.sin(angle)]);
+  }
+  return ring;
+}
+
+function locationData(center: Position, accuracy: number): GeoJSON.FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: [
+      { type: "Feature", geometry: { type: "Polygon", coordinates: [circleRing(center, accuracy)] }, properties: {} },
+      { type: "Feature", geometry: { type: "Point", coordinates: center }, properties: {} },
+    ],
+  };
+}
 
 function boundsOf(features: FieldFeature[]): LngLatBoundsLike | null {
   const points = features.flatMap((feature) => feature.geometry.coordinates[0]);
@@ -114,6 +141,7 @@ export default function MapView(props: Props) {
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [locate, setLocate] = useState<LocateState>("idle");
   const fittedToAllRef = useRef(false);
   const zoomedIdRef = useRef<number | null>(null);
 
@@ -157,8 +185,8 @@ export default function MapView(props: Props) {
         layout: { "line-join": "round" },
         paint: {
           "line-color": ["case", ["get", "selected"], "#ffffff", "#141413"],
-          "line-opacity": ["case", ["get", "selected"], 1, 0.6],
-          "line-width": ["case", ["get", "selected"], 8, 5],
+          "line-opacity": ["case", ["get", "selected"], 1, 0.5],
+          "line-width": ["case", ["get", "selected"], 5, 3],
         },
       });
       map.addLayer({
@@ -168,7 +196,7 @@ export default function MapView(props: Props) {
         layout: { "line-join": "round" },
         paint: {
           "line-color": ["case", ["get", "selected"], "#2563eb", "#f59e0b"],
-          "line-width": ["case", ["get", "selected"], 4, 2],
+          "line-width": ["case", ["get", "selected"], 2.5, 1.5],
         },
       });
       // Draft polygon while drawing. Bright yellow with a dark outline stays visible on satellite imagery.
@@ -220,8 +248,30 @@ export default function MapView(props: Props) {
           "circle-stroke-width": ["case", ["get", "first"], 3, 2.5],
         },
       });
+      map.addSource("location", { type: "geojson", data: EMPTY });
+      map.addLayer({
+        id: "location-accuracy",
+        type: "fill",
+        source: "location",
+        filter: ["==", ["geometry-type"], "Polygon"],
+        paint: { "fill-color": "#2563eb", "fill-opacity": 0.16, "fill-outline-color": "rgba(37, 99, 235, 0.45)" },
+      });
+      map.addLayer({
+        id: "location-dot",
+        type: "circle",
+        source: "location",
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": 6,
+          "circle-color": "#2563eb",
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 3,
+        },
+      });
       setLoaded(true);
     });
+
+    map.on("dragstart", () => setLocate((state) => (state === "found" ? "idle" : state)));
 
     map.on("click", (event: MapMouseEvent) => {
       const current = propsRef.current;
@@ -329,9 +379,51 @@ export default function MapView(props: Props) {
     markerRef.current = new Marker({ color: "#dc2626" }).setLngLat(searchTarget.center).addTo(map);
   }, [loaded, searchTarget]);
 
+  // The browser asks for permission on the first click only. The page never asks on load.
+  const locateUser = () => {
+    const map = mapRef.current;
+    if (!map || !loaded || locate === "locating") return;
+    if (!("geolocation" in navigator)) {
+      props.onLocateError("Brauzeringiz joylashuvni aniqlay olmaydi.");
+      return;
+    }
+    setLocate("locating");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (mapRef.current !== map) return;
+        const { longitude, latitude, accuracy } = position.coords;
+        const center: Position = [longitude, latitude];
+        (map.getSource("location") as GeoJSONSource).setData(locationData(center, accuracy));
+        map.flyTo({ center, zoom: Math.max(map.getZoom(), 15) });
+        setLocate("found");
+      },
+      (error) => {
+        if (mapRef.current !== map) return;
+        setLocate("idle");
+        props.onLocateError(
+          error.code === error.PERMISSION_DENIED
+            ? "Joylashuvga ruxsat berilmadi. Brauzer sozlamalarida bu sayt uchun joylashuvga ruxsat bering."
+            : "Joylashuvni aniqlab boʻlmadi. Qayta urinib koʻring.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+  };
+
   return (
     <>
       <div ref={containerRef} className="map" />
+      <button
+        type="button"
+        className="map-locate"
+        aria-label={locate === "locating" ? "Joylashuv aniqlanmoqda" : "Mening joylashuvim"}
+        title="Mening joylashuvim"
+        aria-pressed={locate === "found"}
+        aria-busy={locate === "locating"}
+        onClick={locateUser}
+      >
+        {locate === "locating" ? <SpinnerIcon size={20} className="spin" /> : <LocateIcon size={20} />}
+      </button>
       <div className="map-zoom">
         <button type="button" aria-label="Yaqinlashtirish" onClick={() => mapRef.current?.zoomIn()}>
           <PlusIcon size={18} strokeWidth={2} />

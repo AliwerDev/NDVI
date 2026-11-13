@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     stac_api_url: str = "https://planetarycomputer.microsoft.com/api/stac/v1"
     stac_collection: str = "sentinel-2-l2a"
     # Max scene cloud cover in percent. It is measured for the whole tile, not for the field.
-    max_cloud_cover: float = 20.0
+    max_cloud_cover: float = 40.0
 
     # NDVI
     # Folder for output files (NDVI COGs). Relative paths start from the working directory.

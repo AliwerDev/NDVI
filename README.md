@@ -181,7 +181,7 @@ All settings come from `.env`. See `.env.example` for the full list.
 | `DATABASE_URL` | – | Database for the services. The host is `db` inside Docker. |
 | `TEST_DATABASE_URL` | – | Database for pytest. If it is empty, pytest skips the database tests. |
 | `STAC_API_URL` | Planetary Computer | STAC API for Sentinel-2 scenes. |
-| `MAX_CLOUD_COVER` | `20` | Maximum scene cloud cover in percent (full tile). |
+| `MAX_CLOUD_COVER` | `40` | Maximum scene cloud cover in percent (full tile). |
 | `MIN_CLEAR_FRACTION` | `0.8` | Minimum share of clear field pixels (0–1). |
 | `DATA_DIR` | `data` | Folder for the NDVI COG files. |
 | `NDVI_DROP_THRESHOLD` | `0.15` | Alert threshold for the mean NDVI drop (absolute). |

@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useCallback, useState } from "react";
 
-import { ExpandIcon, GlobeIcon, MapIcon, PlusIcon } from "@/components/icons";
+import { ExpandIcon, PlusIcon } from "@/components/icons";
 import IndexTabs from "@/components/IndexTabs";
 import LogoMark from "@/components/Logo";
 import MapSearch, { type SearchTarget } from "@/components/MapSearch";
 import MapView, { type Basemap } from "@/components/MapView";
 import AccountCard from "@/components/monitor/AccountCard";
+import BasemapSwitch from "@/components/monitor/BasemapSwitch";
 import DrawingCard from "@/components/monitor/DrawingCard";
 import FieldList from "@/components/monitor/FieldList";
 import LayerLegend from "@/components/monitor/LayerLegend";
@@ -25,11 +26,6 @@ import { useFields } from "@/hooks/useFields";
 import { useOverlay } from "@/hooks/useOverlay";
 import { api, errorText, type FieldLayer, type Position } from "@/lib/api";
 import { daysAgo, formatDate, formatIndex, type IndexName, INDICES, isoDate } from "@/lib/ndvi";
-
-const BASEMAPS: { value: Basemap; label: string; Icon: typeof GlobeIcon }[] = [
-  { value: "satellite", label: "Sunʼiy yoʻldosh", Icon: GlobeIcon },
-  { value: "osm", label: "OpenStreetMap", Icon: MapIcon },
-];
 
 // MapView redraws the draft when this array changes, so "not drawing" uses one constant array.
 const NO_POINTS: Position[] = [];
@@ -137,26 +133,6 @@ export default function FieldMonitor() {
 
         <AccountCard />
 
-        <section className="basemap" aria-labelledby="bm-label">
-          <span id="bm-label" className="label">
-            Xarita
-          </span>
-          <div role="radiogroup" aria-labelledby="bm-label" className="segmented">
-            {BASEMAPS.map(({ value, label, Icon }) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={basemap === value}
-                onClick={() => setBasemap(value)}
-              >
-                <Icon size={16} />
-                {label}
-              </button>
-            ))}
-          </div>
-        </section>
-
         {draftPoints ? (
           <DrawingCard
             points={draftPoints}
@@ -235,6 +211,7 @@ export default function FieldMonitor() {
 
       <main className="map-wrap">
         <MapSearch onSelect={setSearchTarget} />
+        <BasemapSwitch value={basemap} onChange={setBasemap} />
         <MapView
           fields={fields}
           selectedId={selectedId}
@@ -245,6 +222,7 @@ export default function FieldMonitor() {
           overlay={overlay.image}
           basemap={basemap}
           searchTarget={searchTarget}
+          onLocateError={setError}
         />
         <Toasts
           busy={busy}
